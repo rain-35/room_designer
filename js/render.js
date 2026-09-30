@@ -13,7 +13,7 @@
   const HANDLE_PX = 10;      // visible size of a resize handle
   const HANDLE_HIT_PX = 28;  // touch-friendly hit area
 
-  let svg, roomG, floor, gridMinor, gridMajor, furnG, handlesG, wall, overlayG;
+  let svg, roomG, floor, gridMinor, gridMajor, furnG, handlesG, wall, openingsG, overlayG;
   let labels = {};
   let scaleBar, scaleLabel, gridLabel;
   let gridKey = '';
@@ -33,7 +33,8 @@
     gridMajor = make('path', { class: 'grid-major' }, roomG);
     furnG = make('g', { class: 'furniture' }, roomG);
     handlesG = make('g', { class: 'handles' }, roomG);
-    wall = make('rect', { class: 'wall' }, roomG);
+    wall = make('path', { class: 'wall' }, roomG);
+    openingsG = make('g', { class: 'openings' }, roomG);
     ['top', 'bottom', 'left', 'right'].forEach(function (side) {
       labels[side] = make('text', { class: 'wall-label' }, roomG);
     });
@@ -143,6 +144,66 @@
     });
   }
 
+  // The four walls as line segments, leaving a gap wherever a door, window or doorway sits.
+  function wallPath(room) {
+    let d = '';
+    RP.openings.WALLS.forEach(function (name) {
+      const f = RP.openings.wallFrame(room, name);
+      const gaps = room.openings.filter(function (o) { return o.wall === name; })
+        .map(function (o) { return [o.offset, o.offset + o.width]; })
+        .sort(function (a, b) { return a[0] - b[0]; });
+      const seg = function (from, to) {
+        if (to - from < 1e-6) return;
+        const a = { x: f.start.x + f.a.x * from, y: f.start.y + f.a.y * from };
+        const b = { x: f.start.x + f.a.x * to, y: f.start.y + f.a.y * to };
+        d += 'M' + a.x + ' ' + a.y + 'L' + b.x + ' ' + b.y;
+      };
+      let cursor = 0;
+      gaps.forEach(function (g) {
+        seg(cursor, g[0]);
+        cursor = Math.max(cursor, g[1]);
+      });
+      seg(cursor, f.length);
+    });
+    return d;
+  }
+
+  function openingLine(parent, p, q, cls) {
+    return make('line', { class: cls, x1: p.x, y1: p.y, x2: q.x, y2: q.y }, parent);
+  }
+
+  // Doors (leaf and swing arc), windows and doorways, drawn over the gaps in the wall.
+  function drawOpenings(state) {
+    while (openingsG.firstChild) openingsG.removeChild(openingsG.firstChild);
+    const room = state.project.rooms[0];
+    const blocked = RP.checks.forState(state).blockedDoors;
+    room.openings.forEach(function (op) {
+      const e = RP.openings.ends(room, op);
+      const g = make('g', {
+        class: 'opening opening-' + op.type + (op.id === state.ui.selectedOpeningId ? ' selected' : ''),
+        'data-opening': op.id,
+      }, openingsG);
+
+      if (op.type === 'door') {
+        const s = RP.openings.swingOf(room, op);
+        const cross = (s.closedEnd.x - s.hinge.x) * (s.openEnd.y - s.hinge.y) - (s.closedEnd.y - s.hinge.y) * (s.openEnd.x - s.hinge.x);
+        const sweep = cross > 0 ? 1 : 0;
+        const arc = 'A' + op.width + ' ' + op.width + ' 0 0 ' + sweep + ' ';
+        make('path', {
+          class: 'door-swing' + (blocked[op.id] ? ' blocked' : ''),
+          d: 'M' + s.hinge.x + ' ' + s.hinge.y + 'L' + s.closedEnd.x + ' ' + s.closedEnd.y + arc + s.openEnd.x + ' ' + s.openEnd.y + 'Z',
+        }, g);
+        openingLine(g, s.hinge, s.openEnd, 'door-leaf');
+      } else if (op.type === 'window') {
+        openingLine(g, e.p0, e.p1, 'window-glass');
+        openingLine(g, e.p0, e.p1, 'window-core');
+      } else {
+        openingLine(g, e.p0, e.p1, 'doorway-line');
+      }
+      openingLine(g, e.p0, e.p1, 'opening-hit'); // fat invisible line so the gap is easy to click
+    });
+  }
+
   function line(x1, y1, x2, y2, cls) {
     return make('line', { class: cls, x1: x1, y1: y1, x2: x2, y2: y2 }, overlayG);
   }
@@ -220,8 +281,8 @@
 
     floor.setAttribute('width', room.width);
     floor.setAttribute('height', room.length);
-    wall.setAttribute('width', room.width);
-    wall.setAttribute('height', room.length);
+    wall.setAttribute('d', wallPath(room));
+    drawOpenings(state);
 
     // Grid
     const step = state.ui.gridSize;

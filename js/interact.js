@@ -78,6 +78,42 @@
       A.movePiece(drag.id, cx, cy, { coalesce: drag.key });
     }
 
+    // ---- Doors and windows: slide along a wall, or jump to another wall ----
+    function startOpeningDrag(e, op) {
+      const room = S.get().project.rooms[0];
+      const f = RP.openings.wallFrame(room, op.wall);
+      const w = worldAt(e);
+      const t = (w.x - f.start.x) * f.a.x + (w.y - f.start.y) * f.a.y;
+      drag = { kind: 'opening', pointerId: e.pointerId, id: op.id, wall: op.wall, grab: t - op.offset, key: S.newId('open') };
+    }
+
+    function doOpeningDrag(e, w) {
+      const op = A.findOpening(drag.id);
+      if (!op) return;
+      const room = S.get().project.rooms[0];
+      const hit = RP.openings.nearestWall(room, w);
+      if (hit.wall !== drag.wall) { drag.wall = hit.wall; drag.grab = op.width / 2; }
+      let offset = hit.along - drag.grab;
+      const len = RP.openings.wallLength(room, hit.wall);
+      if (snapping(e)) {
+        const grid = S.get().ui.gridSize;
+        const tol = snapThreshold();
+        const tries = [
+          Math.round(offset / grid) * grid,                       // near edge on a grid line
+          Math.round((offset + op.width) / grid) * grid - op.width, // far edge on a grid line
+          0,                                                      // against the wall's start
+          len - op.width,                                         // against the wall's end
+        ];
+        let best = null;
+        tries.forEach(function (c) {
+          const d = Math.abs(c - offset);
+          if (d <= tol && (!best || d < best.d)) best = { d: d, v: c };
+        });
+        if (best) offset = best.v;
+      }
+      A.updateOpening(drag.id, { wall: hit.wall, offset: offset }, { coalesce: drag.key });
+    }
+
     // ---- Measure tool ----
     function measurePoint(e) {
       const pt = worldAt(e);
@@ -101,6 +137,15 @@
       }
       if (S.get().ui.tool === 'measure') {
         tap = { id: e.pointerId, x: e.clientX, y: e.clientY };
+        return;
+      }
+      const opNode = e.target.closest ? e.target.closest('[data-opening]') : null;
+      if (opNode) {
+        const op = A.findOpening(opNode.getAttribute('data-opening'));
+        if (op) {
+          A.selectOpening(op.id);
+          startOpeningDrag(e, op);
+        }
         return;
       }
       const handle = e.target.closest ? e.target.closest('[data-handle]') : null;
@@ -135,6 +180,7 @@
       if (nav.pointerCount() > 1) { drag = null; clearGuides(); return; }
       const w = worldAt(e);
       if (drag.kind === 'resize') doResize(w);
+      else if (drag.kind === 'opening') doOpeningDrag(e, w);
       else doMove(e, w);
     });
 
@@ -165,14 +211,22 @@
       if (e.ctrlKey || e.metaKey || e.altKey) return;
       const ui = S.get().ui;
       const sel = A.selectedPiece();
+      const selOp = A.selectedOpening();
 
-      if (ARROWS[e.key] && sel && ui.tool === 'select') {
+      if (ARROWS[e.key] && selOp && ui.tool === 'select') {
+        // Arrow keys slide a door or window along its wall
+        e.preventDefault();
+        const f = RP.openings.wallFrame(S.get().project.rooms[0], selOp.wall);
+        const dir = ARROWS[e.key][0] * f.a.x + ARROWS[e.key][1] * f.a.y;
+        if (dir) A.updateOpening(selOp.id, { offset: selOp.offset + dir * (e.shiftKey ? 6 : 1) },
+          { coalesce: 'nudge:' + selOp.id, windowMs: 800 });
+      } else if (ARROWS[e.key] && sel && ui.tool === 'select') {
         e.preventDefault();
         const step = e.shiftKey ? 6 : 1;
         A.movePiece(sel.id, sel.x + ARROWS[e.key][0] * step, sel.y + ARROWS[e.key][1] * step,
           { coalesce: 'nudge:' + sel.id, windowMs: 800 });
       } else if (e.key === 'Delete' || e.key === 'Backspace') {
-        if (sel) {
+        if (sel || selOp) {
           e.preventDefault();
           A.deleteSelected();
         }

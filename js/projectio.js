@@ -36,6 +36,21 @@
     return piece;
   }
 
+  function cleanOpening(o, room, seen) {
+    if (!o || typeof o !== 'object' || !isNum(o.width) || o.width <= 0) {
+      throw new Error('A door or window in this file has no valid size.');
+    }
+    const op = Object.assign({ id: '', type: 'door', wall: 'top', offset: 0, swing: 'in-left' }, o);
+    if (RP.openings.TYPES.indexOf(op.type) === -1) op.type = 'door';
+    if (RP.openings.WALLS.indexOf(op.wall) === -1) op.wall = 'top';
+    if (RP.openings.SWINGS.indexOf(op.swing) === -1) op.swing = 'in-left';
+    if (!isNum(op.offset)) op.offset = 0;
+    if (!op.id || seen[op.id]) op.id = S.newId('o');
+    seen[op.id] = true;
+    RP.openings.clampOpening(room, op);
+    return op;
+  }
+
   // Text of a JSON file -> a complete project object, or throws an Error with a plain message.
   function parseProject(text) {
     let obj;
@@ -59,6 +74,8 @@
       }
       const r = Object.assign({ id: S.newId('r'), name: 'Room', x: 0, y: 0, shape: 'rect', points: [], openings: [] }, room);
       r.furniture = (Array.isArray(room.furniture) ? room.furniture : []).map(function (f) { return cleanPiece(f, seen); });
+      const seenOpenings = {};
+      r.openings = (Array.isArray(room.openings) ? room.openings : []).map(function (o) { return cleanOpening(o, r, seenOpenings); });
       return r;
     });
     return project;

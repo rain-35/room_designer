@@ -138,7 +138,17 @@
     const minClear = project.minClearance === undefined ? DEFAULT_MIN_CLEARANCE_IN : project.minClearance;
     const solid = room.furniture.filter(function (f) { return f.layer !== 'floor'; });
     const shapes = solid.map(shapeOf);
-    const result = { overlapIds: {}, gaps: [] };
+    const result = { overlapIds: {}, gaps: [], blockedDoors: {} };
+
+    // A door that opens into the room must have its swing free of furniture.
+    (room.openings || []).forEach(function (op) {
+      if (op.type !== 'door' || op.swing.indexOf('in') !== 0) return;
+      const sector = { type: 'poly', pts: RP.openings.swingPolygon(room, op) };
+      for (let i = 0; i < solid.length; i++) {
+        if (solid[i].ignoreClearance) continue;
+        if (overlaps(sector, shapes[i])) { result.blockedDoors[op.id] = true; break; }
+      }
+    });
 
     for (let i = 0; i < solid.length; i++) {
       for (let j = i + 1; j < solid.length; j++) {
@@ -174,7 +184,7 @@
   // Cached by the state's edit counter, so panning and zooming do not recompute.
   let cacheRev = -1;
   let cache = null;
-  const NONE = { overlapIds: {}, gaps: [] };
+  const NONE = { overlapIds: {}, gaps: [], blockedDoors: {} };
 
   function forState(state) {
     if (!state.ui.warnings) return NONE;

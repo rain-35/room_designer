@@ -9,6 +9,7 @@
   --guide: #c2185b;
   --warn: #e0a100;
   --warn-text: #8a6100;
+  --window: #7fb8f0;
   --danger: #c62828;
   --floor: #fbfaf7;
   --grid: #e3e1db;
@@ -30,6 +31,7 @@
     --guide: #ff6fae;
     --warn: #f2c230;
     --warn-text: #f2c230;
+    --window: #4f8fc9;
     --danger: #ff7b72;
     --floor: #23282d;
     --grid: #2d343a;
@@ -51,6 +53,7 @@
   --guide: #ff6fae;
   --warn: #f2c230;
   --warn-text: #f2c230;
+  --window: #4f8fc9;
   --danger: #ff7b72;
   --floor: #23282d;
   --grid: #2d343a;
@@ -304,6 +307,27 @@ button.primary { background: var(--accent); border-color: var(--accent); color: 
 .layout-btns button { min-height: 32px; padding: 3px 10px; }
 .layout-btns .danger { color: var(--danger); }
 .rename-input { width: 100%; }
+
+/* Doors, windows, doorways */
+.wall { stroke-linecap: square; }
+.openings .door-swing {
+  fill: var(--accent);
+  fill-opacity: 0.1;
+  stroke: var(--wall);
+  stroke-width: 1;
+  stroke-dasharray: 4 3;
+  vector-effect: non-scaling-stroke;
+  pointer-events: none;
+}
+.openings .door-swing.blocked { fill: var(--danger); fill-opacity: 0.25; stroke: var(--danger); }
+.door-leaf { stroke: var(--wall); stroke-width: 3; vector-effect: non-scaling-stroke; pointer-events: none; }
+.window-glass { stroke: var(--window); stroke-width: 7; vector-effect: non-scaling-stroke; pointer-events: none; }
+.window-core { stroke: var(--floor); stroke-width: 2; vector-effect: non-scaling-stroke; pointer-events: none; }
+.doorway-line { stroke: var(--wall); stroke-width: 1.5; stroke-dasharray: 2 4; vector-effect: non-scaling-stroke; pointer-events: none; }
+.opening-hit { stroke: transparent; stroke-width: 18; vector-effect: non-scaling-stroke; pointer-events: stroke; cursor: move; }
+.opening.selected .door-leaf, .opening.selected .doorway-line { stroke: var(--accent); }
+.opening.selected .window-glass { stroke: var(--accent); }
+.swatch-openings { background: linear-gradient(90deg, var(--window) 50%, var(--wall) 50%); }
 
 /* Snap guides, distance readouts, measure tool */
 #canvas.measuring { cursor: crosshair; }

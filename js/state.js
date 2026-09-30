@@ -43,6 +43,7 @@
     ui: {
       gridSize: 12,
       selectedId: null,
+      selectedOpeningId: null,
       snap: true,
       warnings: true,
       tool: 'select',   // 'select' or 'measure'
@@ -69,6 +70,8 @@
     lastEdit = { key: null, time: 0 };
     const id = state.ui.selectedId;
     if (id && !state.project.rooms[0].furniture.some(function (f) { return f.id === id; })) state.ui.selectedId = null;
+    const oid = state.ui.selectedOpeningId;
+    if (oid && !state.project.rooms[0].openings.some(function (o) { return o.id === oid; })) state.ui.selectedOpeningId = null;
     state.ui.guides = [];
     notify();
   }
@@ -117,7 +120,7 @@
       history.undo.length = 0;
       history.redo.length = 0;
       lastEdit = { key: null, time: 0 };
-      Object.assign(state.ui, { selectedId: null, tool: 'select', guides: [], measure: null });
+      Object.assign(state.ui, { selectedId: null, selectedOpeningId: null, tool: 'select', guides: [], measure: null });
       state.rev++;
       notify();
     },

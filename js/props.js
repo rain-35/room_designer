@@ -9,7 +9,7 @@
   const MIN_PIECE_IN = 1;
   const MAX_PIECE_IN = 600;
 
-  let panelEl, roomBoxes, pieceBoxes;
+  let panelEl, roomBoxes, pieceBoxes, openingBoxes;
   const $ = function (id) { return document.getElementById(id); };
 
   function room() { return S.get().project.rooms[0]; }
@@ -72,6 +72,29 @@
     $('p-locked').addEventListener('change', function () { A.updatePiece(selId(), { locked: $('p-locked').checked }); });
     $('p-ignore').addEventListener('change', function () { A.updatePiece(selId(), { ignoreClearance: $('p-ignore').checked }); });
 
+    // Door / window / doorway
+    function openingBox(id, key, min) {
+      return RP.fields.bindLength($(id), {
+        get: function () { const o = A.selectedOpening(); return o ? o[key] : 0; },
+        set: function (inches) { const o = A.selectedOpening(); if (o) A.updateOpening(o.id, { [key]: inches }); },
+        min: min,
+        max: opts.maxRoom,
+        units: units,
+      });
+    }
+    openingBoxes = [openingBox('o-offset', 'offset', 0), openingBox('o-width', 'width', 6)];
+
+    function openingPatch(patch) {
+      const o = A.selectedOpening();
+      if (o) A.updateOpening(o.id, patch);
+    }
+    $('o-type').addEventListener('change', function () { openingPatch({ type: $('o-type').value }); });
+    $('o-wall').addEventListener('change', function () { openingPatch({ wall: $('o-wall').value }); });
+    function swingChanged() { openingPatch({ swing: $('o-opens').value + '-' + $('o-hinge').value }); }
+    $('o-opens').addEventListener('change', swingChanged);
+    $('o-hinge').addEventListener('change', swingChanged);
+    $('o-del').addEventListener('click', A.deleteSelected);
+
     // Buttons (panel and selection bar)
     function rotate(dir) { return function () { if (selId()) A.rotatePiece(selId(), dir); }; }
     $('p-rot-ccw').addEventListener('click', rotate(-1));
@@ -107,14 +130,31 @@
     });
   }
 
+  function syncOpening(op) {
+    $('props-title').textContent = RP.openings.label(op);
+    setValue($('o-type'), op.type);
+    setValue($('o-wall'), op.wall);
+    $('o-offset-label').textContent = RP.openings.offsetLabel(op.wall);
+    openingBoxes.forEach(function (b) { b.sync(); });
+    $('o-swing-rows').hidden = op.type !== 'door';
+    setValue($('o-opens'), op.swing.indexOf('in') === 0 ? 'in' : 'out');
+    setValue($('o-hinge'), op.swing.slice(-4) === 'left' ? 'left' : 'right');
+  }
+
   function sync(state) {
     syncCategoryOptions(state);
     const f = A.selectedPiece();
-    $('props-room').hidden = !!f;
+    const op = A.selectedOpening();
+    $('props-room').hidden = !!f || !!op;
     $('props-piece').hidden = !f;
+    $('props-opening').hidden = !op;
     $('props-title').textContent = f ? 'Piece' : 'Room';
-    if (!f) panelEl.classList.remove('open');
+    if (!f && !op) panelEl.classList.remove('open');
 
+    if (op) {
+      syncOpening(op);
+      return;
+    }
     if (!f) {
       setValue($('r-name'), room().name);
       roomBoxes.forEach(function (b) { b.sync(); });

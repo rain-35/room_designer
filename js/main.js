@@ -41,7 +41,10 @@
 
   // ---- Room size (toolbar and properties panel) ----
   function setRoomDimension(key, inches) {
-    S.update(function (p) { p.rooms[0][key] = inches; });
+    S.update(function (p) {
+      p.rooms[0][key] = inches;
+      RP.openings.clampAll(p.rooms[0]); // doors and windows stay on the (now different) walls
+    });
     view.fit();
   }
   RP.props.init({ setRoomDimension: setRoomDimension, minRoom: MIN_ROOM_IN, maxRoom: MAX_ROOM_IN });
@@ -332,6 +335,8 @@
     const parts = [];
     if (nOver) parts.push(nOver + (nOver === 1 ? ' piece overlaps' : ' pieces overlap'));
     if (nGaps) parts.push(nGaps + (nGaps === 1 ? ' tight gap' : ' tight gaps'));
+    const nDoors = Object.keys(found.blockedDoors).length;
+    if (nDoors) parts.push(nDoors + (nDoors === 1 ? ' door swing blocked' : ' door swings blocked'));
     warnSummary.textContent = parts.join(', ');
     const measuring = state.ui.tool === 'measure';
     measureBtn.setAttribute('aria-pressed', String(measuring));

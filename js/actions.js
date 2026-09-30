@@ -45,8 +45,52 @@
       ignoreClearance: false,
     };
     S.update(function (p) { p.rooms[0].furniture.push(piece); });
-    S.setUi({ selectedId: piece.id });
+    S.setUi({ selectedId: piece.id, selectedOpeningId: null });
     return piece;
+  }
+
+  // ---- Doors, windows and doorways ----
+  function findOpening(id) {
+    const list = currentRoom().openings;
+    for (let i = 0; i < list.length; i++) if (list[i].id === id) return list[i];
+    return null;
+  }
+
+  function selectedOpening() {
+    const id = S.get().ui.selectedOpeningId;
+    return id ? findOpening(id) : null;
+  }
+
+  // Add from a template in RP.openings.TEMPLATES; starts centered on the top wall.
+  function addOpening(tpl) {
+    const room = currentRoom();
+    const op = {
+      id: S.newId('o'),
+      type: tpl.type,
+      wall: 'top',
+      offset: Math.max(0, (room.width - tpl.width) / 2),
+      width: tpl.width,
+      swing: 'in-left',
+    };
+    RP.openings.clampOpening(room, op);
+    S.update(function (p) { p.rooms[0].openings.push(op); });
+    S.setUi({ selectedOpeningId: op.id, selectedId: null, tool: 'select', measure: null });
+    return op;
+  }
+
+  function updateOpening(id, patch, opts) {
+    S.update(function (p) {
+      const room = p.rooms[0];
+      const op = room.openings.find(function (o) { return o.id === id; });
+      if (!op) return;
+      Object.assign(op, patch);
+      RP.openings.clampOpening(room, op);
+    }, opts);
+  }
+
+  function selectOpening(id) {
+    const ui = S.get().ui;
+    if (ui.selectedOpeningId !== id || ui.selectedId !== null) S.setUi({ selectedOpeningId: id, selectedId: null });
   }
 
   // Change any fields of a piece. A locked piece keeps its position, size and rotation.
@@ -85,6 +129,15 @@
   }
 
   function deleteSelected() {
+    const op = selectedOpening();
+    if (op) {
+      S.update(function (p) {
+        const list = p.rooms[0].openings;
+        list.splice(list.findIndex(function (o) { return o.id === op.id; }), 1);
+      });
+      S.setUi({ selectedOpeningId: null });
+      return;
+    }
     const f = selectedPiece();
     if (!f || f.locked) return;
     S.update(function (p) {
@@ -95,7 +148,8 @@
   }
 
   function select(id) {
-    if (S.get().ui.selectedId !== id) S.setUi({ selectedId: id });
+    const ui = S.get().ui;
+    if (ui.selectedId !== id || ui.selectedOpeningId !== null) S.setUi({ selectedId: id, selectedOpeningId: null });
   }
 
   RP.actions = {
@@ -108,5 +162,10 @@
     duplicateSelected: duplicateSelected,
     deleteSelected: deleteSelected,
     select: select,
+    findOpening: findOpening,
+    selectedOpening: selectedOpening,
+    addOpening: addOpening,
+    updateOpening: updateOpening,
+    selectOpening: selectOpening,
   };
 })(window.RP = window.RP || {});

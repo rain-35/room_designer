@@ -137,6 +137,33 @@
       <p class="hint">Click a piece to edit it. Shortcuts: R rotates, Delete removes.</p>
     </div>
 
+    <div class="panel-body" id="props-opening" hidden>
+      <label class="row"><span>Type</span>
+        <select id="o-type">
+          <option value="door">Door</option><option value="window">Window</option><option value="opening">Open doorway</option>
+        </select>
+      </label>
+      <label class="row"><span>Wall</span>
+        <select id="o-wall">
+          <option value="top">Top</option><option value="right">Right</option><option value="bottom">Bottom</option><option value="left">Left</option>
+        </select>
+      </label>
+      <label class="row"><span id="o-offset-label">From left</span><input id="o-offset" type="text" autocomplete="off" autocapitalize="off" spellcheck="false"></label>
+      <label class="row"><span>Width</span><input id="o-width" type="text" autocomplete="off" autocapitalize="off" spellcheck="false"></label>
+      <div id="o-swing-rows">
+        <label class="row"><span>Opens</span>
+          <select id="o-opens"><option value="in">Into the room</option><option value="out">Out of the room</option></select>
+        </label>
+        <label class="row"><span>Hinge</span>
+          <select id="o-hinge"><option value="left">Left</option><option value="right">Right</option></select>
+        </label>
+        <p class="hint">Hinge side is as seen from inside the room, facing this wall.</p>
+      </div>
+      <div class="btn-grid">
+        <button type="button" id="o-del" class="danger">Delete</button>
+      </div>
+    </div>
+
     <div class="panel-body" id="props-piece" hidden>
       <label class="row"><span>Name</span><input id="p-name" type="text" autocomplete="off"></label>
       <label class="row"><span>Category</span><select id="p-category"></select></label>
@@ -172,6 +199,7 @@
 
   <script src="js/units.js"></script>
   <script src="js/geometry.js"></script>
+  <script src="js/openings.js"></script>
   <script src="js/library.js"></script>
   <script src="js/snap.js"></script>
   <script src="js/checks.js"></script>

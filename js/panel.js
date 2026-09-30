@@ -36,6 +36,43 @@
     const allItems = RP.library.allItems();
     listEl.textContent = '';
 
+    // Doors and windows come first: click to add, then slide along a wall.
+    const templates = RP.openings.TEMPLATES.filter(function (t) {
+      return !q || (t.name + ' door window opening doorway').toLowerCase().indexOf(q) !== -1;
+    });
+    if (templates.length) {
+      const details = document.createElement('details');
+      details.open = true;
+      const summary = document.createElement('summary');
+      const swatch = document.createElement('span');
+      swatch.className = 'swatch swatch-openings';
+      summary.appendChild(swatch);
+      const label = document.createElement('span');
+      label.className = 'cat-name';
+      label.textContent = 'Doors & windows';
+      summary.appendChild(label);
+      details.appendChild(summary);
+      templates.forEach(function (t) {
+        const row = document.createElement('div');
+        row.className = 'lib-row';
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'lib-item lib-opening';
+        btn.dataset.opening = t.key;
+        const name = document.createElement('span');
+        name.className = 'lib-name';
+        name.textContent = t.name;
+        const dims = document.createElement('span');
+        dims.className = 'lib-dims';
+        dims.textContent = RP.units.formatLength(t.width, project.units);
+        btn.appendChild(name);
+        btn.appendChild(dims);
+        row.appendChild(btn);
+        details.appendChild(row);
+      });
+      listEl.appendChild(details);
+    }
+
     RP.library.allCategories(project).forEach(function (cat) {
       const catItems = allItems.filter(function (it) { return it.categoryId === cat.id; });
       const items = catItems.filter(function (it) {
@@ -124,7 +161,7 @@
 
     listEl.addEventListener('pointerdown', function (e) {
       const btn = e.target.closest('.lib-item');
-      if (!btn || e.button !== 0 || e.pointerType === 'touch') return;
+      if (!btn || btn.classList.contains('lib-opening') || e.button !== 0 || e.pointerType === 'touch') return;
       start = { x: e.clientX, y: e.clientY, btn: btn, id: e.pointerId };
     });
 
@@ -173,6 +210,12 @@
     listEl.addEventListener('click', function (e) {
       const btn = e.target.closest('.lib-item');
       if (!btn || suppressClick) return;
+      if (btn.classList.contains('lib-opening')) {
+        const key = btn.dataset.opening;
+        A.addOpening(RP.openings.TEMPLATES.filter(function (t) { return t.key === key; })[0]);
+        closeDrawer();
+        return;
+      }
       A.addPiece(itemFor(btn));
       closeDrawer();
     });
@@ -207,9 +250,17 @@
       renderList();
     }
     const piece = A.selectedPiece();
+    const opening = A.selectedOpening();
     const bar = document.getElementById('selection-bar');
-    bar.hidden = !piece;
-    if (piece) {
+    bar.hidden = !piece && !opening;
+    // Rotate and Duplicate only make sense for furniture
+    document.getElementById('sb-rotate').hidden = !!opening;
+    document.getElementById('sb-dup').hidden = !!opening;
+    if (opening) {
+      document.getElementById('selection-name').textContent = RP.openings.label(opening) + ' · ' +
+        RP.units.formatLength(opening.width, state.project.units);
+      document.getElementById('delete-btn').disabled = false;
+    } else if (piece) {
       const f = function (n) { return RP.units.formatLength(n, state.project.units); };
       document.getElementById('selection-name').textContent = piece.name + ' · ' +
         (piece.shape === 'circle' ? f(piece.width) + ' dia.' : f(piece.width) + ' × ' + f(piece.depth));
