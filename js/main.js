@@ -238,6 +238,7 @@
   $('export-btn').addEventListener('click', function () {
     RP.projectio.exportProject(S.get().project);
   });
+  $('print-btn').addEventListener('click', function () { RP.dialogs.printDialog(); });
   $('import-btn').addEventListener('click', function () { $('import-file').click(); });
   $('import-file').addEventListener('change', function (e) {
     const file = e.target.files && e.target.files[0];

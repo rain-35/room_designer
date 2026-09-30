@@ -308,6 +308,19 @@ button.primary { background: var(--accent); border-color: var(--accent); color: 
 .layout-btns .danger { color: var(--danger); }
 .rename-input { width: 100%; }
 
+/* Print / PNG dialog and the printed page */
+.print-preview { height: 240px; margin-top: 12px; border: 1px solid var(--border); border-radius: 6px; background: #fff; overflow: hidden; }
+.print-preview svg { display: block; }
+.hint.bad { color: var(--danger); }
+.modal-body .row input[type="checkbox"] { width: auto; }
+#print-root { display: none; }
+@media print {
+  body > *:not(#print-root) { display: none !important; }
+  #print-root { display: block; }
+  #print-root svg { display: block; }
+  html, body { background: #fff !important; margin: 0; padding: 0; }
+}
+
 /* Several rooms: name tags, area labels, the rooms list */
 .room.inactive .floor { fill-opacity: 0.6; }
 .room.inactive .wall { stroke-opacity: 0.6; }

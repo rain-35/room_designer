@@ -334,6 +334,108 @@
     w.focus();
   }
 
+  // ---- Print / PNG ----
+  function printDialog() {
+    const project = S.get().project;
+    const body = el('div');
+    const paper = el('select');
+    RP.plan.PAPERS.forEach(function (p) {
+      const o = el('option', null, p.name);
+      o.value = p.key;
+      paper.appendChild(o);
+    });
+    const scale = el('select');
+    const best = el('option', null, 'Best fit (largest standard scale)');
+    best.value = 'fit';
+    scale.appendChild(best);
+    RP.plan.scalesFor(project).forEach(function (s) {
+      const o = el('option', null, s.label);
+      o.value = String(s.k);
+      scale.appendChild(o);
+    });
+    const checks = {};
+    function check(key, label, on) {
+      const c = el('input');
+      c.type = 'checkbox';
+      c.checked = on;
+      checks[key] = c;
+      const row = el('label', 'row');
+      row.appendChild(el('span', null, label));
+      row.appendChild(c);
+      return row;
+    }
+    const preview = el('div', 'print-preview');
+    const note = el('div', 'hint');
+    const err = errorLine();
+
+    function options() {
+      return {
+        paper: paper.value,
+        scale: scale.value === 'fit' ? 'fit' : Number(scale.value),
+        walls: checks.walls.checked,
+        names: checks.names.checked,
+        sizes: checks.sizes.checked,
+        rooms: checks.rooms.checked,
+      };
+    }
+    function refresh() {
+      const built = RP.plan.build(S.get().project, options());
+      preview.innerHTML = built.svg;
+      const svg = preview.querySelector('svg');
+      svg.removeAttribute('width');
+      svg.removeAttribute('height');
+      svg.style.width = '100%';
+      svg.style.height = '100%';
+      const size = Math.round(built.w * 10) / 10 + ' × ' + Math.round(built.h * 10) / 10 + ' in page';
+      note.textContent = built.fits ? 'Scale ' + built.label + ' · ' + size
+        : 'The plan does not fit on this page at ' + built.label + '. Pick a smaller scale or a bigger page.';
+      note.classList.toggle('bad', !built.fits);
+      err.textContent = '';
+    }
+
+    body.appendChild(field('Paper', paper));
+    body.appendChild(field('Scale', scale));
+    body.appendChild(check('rooms', 'Room names and areas', true));
+    body.appendChild(check('walls', 'Wall lengths', true));
+    body.appendChild(check('names', 'Furniture names', true));
+    body.appendChild(check('sizes', 'Furniture sizes', true));
+    [paper, scale].concat(Object.keys(checks).map(function (k) { return checks[k]; })).forEach(function (n) {
+      n.addEventListener('change', refresh);
+    });
+    body.appendChild(preview);
+    body.appendChild(note);
+    body.appendChild(el('p', 'hint', 'To get a PDF, choose Print and set the printer to "Save as PDF". Print at 100% (not "fit to page") so the scale is true.'));
+    body.appendChild(err);
+
+    function guard() {
+      const built = RP.plan.build(S.get().project, options());
+      if (!built.fits) { err.textContent = 'The plan does not fit on this page at that scale.'; return null; }
+      return options();
+    }
+
+    open('Print or save a plan', body, [
+      { label: 'Cancel', run: function () {} },
+      {
+        label: 'Save PNG',
+        run: function () {
+          const o = guard();
+          if (!o) return false;
+          RP.plan.savePng(S.get().project, o, 150).catch(function (e) { window.alert(e.message); });
+        },
+      },
+      {
+        label: 'Print / PDF',
+        primary: true,
+        run: function () {
+          const o = guard();
+          if (!o) return false;
+          setTimeout(function () { RP.plan.print(S.get().project, o); }, 150); // after the dialog has closed
+        },
+      },
+    ]);
+    refresh();
+  }
+
   // ---- Sync conflict ----
   // Resolves to 'local', 'cloud', 'both', or null (decide later). Waits if another dialog is open.
   function conflictDialog(info) {
@@ -386,6 +488,7 @@
     newCategory: newCategory,
     pieceDialog: pieceDialog,
     lShapeDialog: lShapeDialog,
+    printDialog: printDialog,
     layoutsDialog: layoutsDialog,
     importDialog: importDialog,
     conflictDialog: conflictDialog,

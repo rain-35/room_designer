@@ -435,5 +435,5 @@
     gridLabel.textContent = 'Grid: ' + state.ui.gridSize + '"';
   }
 
-  RP.render = { init: init, draw: draw, getSize: getSize };
+  RP.render = { init: init, draw: draw, getSize: getSize, wallPath: wallPath };
 })(window.RP = window.RP || {});
