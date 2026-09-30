@@ -65,8 +65,7 @@
     return e;
   }
 
-  function saveUserLibrary() {
-    RP.storage.saveUserLibrary(RP.library.getUser());
+  function refreshLibraryUi() {
     S.setUi({}); // refresh anything showing categories or pieces
   }
 
@@ -94,8 +93,8 @@
           const taken = RP.library.allCategories(S.get().project).some(function (c) { return c.name.toLowerCase() === n.toLowerCase(); });
           if (taken) { err.textContent = 'A category with that name already exists.'; return false; }
           const cat = RP.library.newCategory(n, color.value);
-          RP.library.getUser().categories.push(cat);
-          saveUserLibrary();
+          RP.library.addUserCategory(cat);
+          refreshLibraryUi();
           if (onCreated) onCreated(cat);
         },
       },
@@ -172,13 +171,14 @@
           const data = { name: n, categoryId: cat.value, shape: shape.value, defaultWidth: w, defaultDepth: d };
           if (existing) {
             Object.assign(existing, data);
-            saveUserLibrary();
+            RP.library.touchUserItem(existing);
+            refreshLibraryUi();
             return;
           }
           let item = Object.assign({ type: 'u-' + S.newId(''), builtIn: false, ownerId: '' }, data);
           if (save.checked) {
-            RP.library.getUser().items.push(item);
-            saveUserLibrary();
+            RP.library.addUserItem(item);
+            refreshLibraryUi();
           }
           RP.actions.addPiece(item);
         },
@@ -284,6 +284,45 @@
     ]);
   }
 
+  // ---- Sync conflict ----
+  // Resolves to 'local', 'cloud', 'both', or null (decide later). Waits if another dialog is open.
+  function conflictDialog(info) {
+    return new Promise(function (resolve) {
+      function show() {
+        let answered = false;
+        function answer(value) { answered = true; resolve(value); }
+        const body = el('div');
+        body.appendChild(el('p', null, '"' + info.name + '" was changed on this device and also on another computer.'));
+        body.appendChild(el('p', 'hint', 'This device: updated ' + formatWhen(info.localUpdatedAt) +
+          '. Other computer: updated ' + formatWhen(info.cloudUpdatedAt) + '.'));
+        body.appendChild(el('p', null, 'Which version do you want to keep?'));
+        open('Two versions of this layout', body, [
+          { label: 'Decide later', run: function () { answer(null); } },
+          { label: 'Keep both', run: function () { answer('both'); } },
+          { label: 'Use the other computer’s', run: function () { answer('cloud'); } },
+          { label: 'Keep this device’s', primary: true, run: function () { answer('local'); } },
+        ]);
+        // Closing with Esc or the X counts as "decide later".
+        modal.addEventListener('close', function onClose() {
+          modal.removeEventListener('close', onClose);
+          if (!answered) resolve(null);
+        });
+      }
+      if (modal.open) {
+        modal.addEventListener('close', function wait() {
+          modal.removeEventListener('close', wait);
+          show();
+        });
+      } else {
+        show();
+      }
+    });
+  }
+
+  function closeAll() {
+    if (modal && modal.open) modal.close();
+  }
+
   function init() {
     modal = document.getElementById('modal');
     modal.addEventListener('click', function (e) {
@@ -291,5 +330,13 @@
     });
   }
 
-  RP.dialogs = { init: init, newCategory: newCategory, pieceDialog: pieceDialog, layoutsDialog: layoutsDialog, importDialog: importDialog };
+  RP.dialogs = {
+    init: init,
+    closeAll: closeAll,
+    newCategory: newCategory,
+    pieceDialog: pieceDialog,
+    layoutsDialog: layoutsDialog,
+    importDialog: importDialog,
+    conflictDialog: conflictDialog,
+  };
 })(window.RP = window.RP || {});

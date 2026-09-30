@@ -30,11 +30,6 @@
     return b;
   }
 
-  function saveLibrary() {
-    RP.storage.saveUserLibrary(RP.library.getUser());
-    renderList();
-  }
-
   function renderList() {
     const project = S.get().project;
     const q = searchEl.value.trim().toLowerCase();
@@ -65,9 +60,8 @@
       const inUse = project.rooms[0].furniture.some(function (f) { return f.categoryId === cat.id; });
       if (isUserCategory && !catItems.length && !inUse) {
         summary.appendChild(smallButton('×', 'Delete category ' + cat.name, function () {
-          const u = RP.library.getUser();
-          u.categories = u.categories.filter(function (c) { return c.id !== cat.id; });
-          saveLibrary();
+          RP.library.removeUserCategory(cat.id);
+          renderList();
         }));
       }
       details.appendChild(summary);
@@ -97,9 +91,8 @@
         if (!it.builtIn) {
           row.appendChild(smallButton('✎', 'Edit ' + it.name, function () { RP.dialogs.pieceDialog(it); }));
           row.appendChild(smallButton('×', 'Delete ' + it.name + ' from library', function () {
-            const u = RP.library.getUser();
-            u.items = u.items.filter(function (x) { return x.type !== it.type; });
-            saveLibrary();
+            RP.library.removeUserItem(it.type);
+            renderList();
           }));
         }
         details.appendChild(row);

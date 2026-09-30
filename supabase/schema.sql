@@ -61,3 +61,10 @@ create policy "own library items" on public.library_items
 revoke all on public.projects      from anon;
 revoke all on public.categories    from anon;
 revoke all on public.library_items from anon;
+
+-- Signed-in users may use the tables; the row-level security policies above
+-- still limit each person to their own rows. (Newer Supabase projects do not
+-- grant this automatically, so it is spelled out here. Safe to run again.)
+grant select, insert, update, delete on public.projects      to authenticated;
+grant select, insert, update, delete on public.categories    to authenticated;
+grant select, insert, update, delete on public.library_items to authenticated;

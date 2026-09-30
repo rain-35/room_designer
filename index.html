@@ -7,7 +7,41 @@
   <link rel="icon" href="data:,">
   <link rel="stylesheet" href="css/styles.css">
 </head>
-<body>
+<body data-state="booting">
+  <div class="boot" id="boot" role="status">Loading&hellip;</div>
+
+  <!-- Signed-out visitors see only this screen. -->
+  <section class="auth-screen" id="auth-screen" aria-label="Sign in">
+    <div class="auth-card">
+      <h1>Room Planner</h1>
+      <p class="auth-sub">Sign in to open your layouts.</p>
+
+      <form id="form-signin" hidden>
+        <label class="row"><span>Email</span><input id="si-email" type="email" autocomplete="username" autocapitalize="off" spellcheck="false" required></label>
+        <label class="row"><span>Password</span><input id="si-pass" type="password" autocomplete="current-password" required></label>
+        <button type="submit" class="primary wide">Sign in</button>
+        <button type="button" class="linklike" id="to-reset">Forgot password?</button>
+      </form>
+
+      <form id="form-reset" hidden>
+        <p class="hint">We will email you a link to choose a new password.</p>
+        <label class="row"><span>Email</span><input id="rs-email" type="email" autocomplete="username" autocapitalize="off" spellcheck="false" required></label>
+        <button type="submit" class="primary wide">Send reset link</button>
+        <button type="button" class="linklike" id="to-signin">Back to sign in</button>
+      </form>
+
+      <form id="form-newpass" hidden>
+        <p class="hint">Choose a new password (at least 8 characters).</p>
+        <label class="row"><span>New password</span><input id="np-pass" type="password" autocomplete="new-password" required></label>
+        <label class="row"><span>Repeat it</span><input id="np-pass2" type="password" autocomplete="new-password" required></label>
+        <button type="submit" class="primary wide">Save password</button>
+      </form>
+
+      <p class="auth-error-only" id="auth-error-only" hidden></p>
+      <p class="auth-msg" id="auth-msg" role="status" aria-live="polite"></p>
+    </div>
+  </section>
+
   <header class="toolbar" id="toolbar">
     <button type="button" id="library-toggle" class="drawer-only">Library</button>
     <div class="brand">Room Planner</div>
@@ -19,6 +53,9 @@
     <button type="button" id="export-btn" title="Download this layout as a JSON file">Export</button>
     <input type="file" id="import-file" accept=".json,application/json" hidden>
     <span class="save-status" id="save-status" role="status"></span>
+    <button type="button" id="sync-btn" title="Sync with the cloud now">Sync</button>
+    <span class="account" id="account" title="Signed in as"></span>
+    <button type="button" id="signout-btn" title="Sign out of this device">Sign out</button>
 
     <label class="field">
       <span>Width</span>
@@ -129,6 +166,10 @@
 
   <dialog id="modal" aria-label="Dialog"></dialog>
 
+  <!-- supabase-js, pinned to an exact version and checked against its published hash -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"
+          integrity="sha256-WdOUh8NYmEO0EDItij1WLOAiq6HlzLFomO8/sqDaLs0=" crossorigin="anonymous"></script>
+
   <script src="js/units.js"></script>
   <script src="js/geometry.js"></script>
   <script src="js/library.js"></script>
@@ -145,6 +186,10 @@
   <script src="js/props.js"></script>
   <script src="js/projectio.js"></script>
   <script src="js/dialogs.js"></script>
+  <script src="js/config.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/authscreen.js"></script>
+  <script src="js/cloud.js"></script>
   <script src="js/main.js"></script>
 </body>
 </html>

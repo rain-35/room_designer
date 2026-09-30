@@ -69,14 +69,61 @@
   ];
 
   // The signed-in user's own categories and pieces (kept in storage, shared by all their layouts).
-  let user = { categories: [], items: [] };
+  // `deleted` remembers removals (id -> ISO time) until the cloud has been told.
+  let user = { categories: [], items: [], deleted: { categories: {}, items: {} } };
+  const listeners = [];
 
+  function now() { return new Date().toISOString(); }
+
+  // Replace the whole user library (sign-in, or a sync pulled newer data). Does not notify.
   function setUser(lib) {
-    user = { categories: lib.categories || [], items: lib.items || [] };
+    const deleted = lib.deleted || {};
+    user = {
+      categories: lib.categories || [],
+      items: lib.items || [],
+      deleted: { categories: deleted.categories || {}, items: deleted.items || {} },
+    };
+    user.categories.forEach(function (c) { if (!c.updatedAt) c.updatedAt = now(); });
+    user.items.forEach(function (i) { if (!i.updatedAt) i.updatedAt = now(); });
   }
 
   function getUser() {
     return user;
+  }
+
+  // Called after every local edit of the user library (to save it and sync it).
+  function onUserChange(fn) { listeners.push(fn); }
+  function changed() { listeners.forEach(function (fn) { fn(user); }); }
+
+  function addUserCategory(cat) {
+    cat.updatedAt = now();
+    user.categories.push(cat);
+    delete user.deleted.categories[cat.id];
+    changed();
+  }
+
+  function removeUserCategory(id) {
+    user.categories = user.categories.filter(function (c) { return c.id !== id; });
+    user.deleted.categories[id] = now();
+    changed();
+  }
+
+  function addUserItem(item) {
+    item.updatedAt = now();
+    user.items.push(item);
+    delete user.deleted.items[item.type];
+    changed();
+  }
+
+  function touchUserItem(item) {
+    item.updatedAt = now();
+    changed();
+  }
+
+  function removeUserItem(type) {
+    user.items = user.items.filter(function (i) { return i.type !== type; });
+    user.deleted.items[type] = now();
+    changed();
   }
 
   function byId(list, id) {
@@ -153,6 +200,12 @@
     colorOf: colorOf,
     setUser: setUser,
     getUser: getUser,
+    onUserChange: onUserChange,
+    addUserCategory: addUserCategory,
+    removeUserCategory: removeUserCategory,
+    addUserItem: addUserItem,
+    touchUserItem: touchUserItem,
+    removeUserItem: removeUserItem,
     isBuiltInCategory: isBuiltInCategory,
     syncProjectCategories: syncProjectCategories,
     newCategory: newCategory,

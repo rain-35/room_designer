@@ -1,4 +1,5 @@
-// Wires the toolbar to the state, manages layouts and autosave, and starts the app.
+// Wires the toolbar to the state, manages layouts, autosave and cloud sync, and starts the
+// app once someone has signed in.
 (function (RP) {
   'use strict';
 
@@ -7,6 +8,7 @@
   const MIN_ROOM_IN = 12;
   const MAX_ROOM_IN = 6000;
   const AUTOSAVE_MS = 400;
+  const FIRST_SYNC_WAIT_MS = 8000;
 
   const $ = function (id) { return document.getElementById(id); };
   const svg = $('canvas');
@@ -19,18 +21,20 @@
   const redoBtn = $('redo-btn');
   const saveStatus = $('save-status');
 
-  // Saved preferences (grid, snap, warnings) before anything draws
+  // Saved preferences (grid, snap, warnings) are per device and hold no layout data.
   const prefs = RP.storage.loadPrefs();
   if ([1, 6, 12].indexOf(prefs.gridSize) !== -1) S.get().ui.gridSize = prefs.gridSize;
   if (typeof prefs.snap === 'boolean') S.get().ui.snap = prefs.snap;
   if (typeof prefs.warnings === 'boolean') S.get().ui.warnings = prefs.warnings;
-  RP.library.setUser(RP.storage.loadUserLibrary());
 
   RP.render.init(svg);
   const view = RP.input.init(svg);
   RP.interact.init(svg, view);
   RP.panel.init();
   RP.dialogs.init();
+  RP.authscreen.init();
+
+  let active = false; // true only while someone is signed in and their data is loaded
 
   function room() { return S.get().project.rooms[0]; }
   function units() { return S.get().project.units; }
@@ -70,36 +74,70 @@
   undoBtn.addEventListener('click', RP.app.undo);
   redoBtn.addEventListener('click', RP.app.redo);
 
-  // ---- Autosave to browser storage ----
+  // ---- Status text: local save state + cloud sync state ----
+  let localState = 'saved';                          // 'saved' | 'saving' | 'error'
+  let cloudStatus = { state: 'idle', message: '' };
+
+  function renderStatus() {
+    let text = 'Saved locally';
+    let cls = '';
+    let title = '';
+    if (localState === 'error') {
+      text = 'Not saved: browser storage unavailable';
+      cls = 'error';
+    } else if (localState === 'saving') {
+      text = 'Saving…';
+    } else {
+      switch (cloudStatus.state) {
+        case 'syncing': text = 'Syncing…'; break;
+        case 'synced': text = 'Synced'; break;
+        case 'pending': text = 'Saved · will sync'; break;
+        case 'offline': text = 'Offline · saved on this device'; cls = 'warn'; break;
+        case 'conflict': text = 'A layout needs your decision'; cls = 'warn'; break;
+        case 'error': text = 'Sync problem'; cls = 'error'; title = cloudStatus.message; break;
+        default: break;
+      }
+    }
+    saveStatus.textContent = text;
+    saveStatus.title = title;
+    saveStatus.className = 'save-status' + (cls ? ' ' + cls : '');
+  }
+
+  // ---- Autosave to browser storage (then the cloud picks it up) ----
   let savedRev = S.get().rev; // the placeholder project in memory at startup is never saved
   let saveTimer = 0;
-
-  function setStatus(text, isError) {
-    saveStatus.textContent = text;
-    saveStatus.classList.toggle('error', !!isError);
-  }
 
   function saveNow() {
     clearTimeout(saveTimer);
     saveTimer = 0;
+    if (!active) return;
     const ok = RP.storage.saveLayout(S.get().project);
     savedRev = S.get().rev;
-    setStatus(ok ? 'Saved locally' : 'Not saved: browser storage unavailable', !ok);
+    localState = ok ? 'saved' : 'error';
+    renderStatus();
+    RP.cloud.localChanged();
   }
 
   function scheduleSave() {
-    if (S.get().rev === savedRev) return;
-    setStatus('Saving…');
+    if (!active || S.get().rev === savedRev) return;
+    localState = 'saving';
+    renderStatus();
     clearTimeout(saveTimer);
     saveTimer = setTimeout(saveNow, AUTOSAVE_MS);
   }
 
   function flushSave() {
-    if (S.get().rev !== savedRev) saveNow();
+    if (active && S.get().rev !== savedRev) saveNow();
   }
   window.addEventListener('pagehide', flushSave);
   document.addEventListener('visibilitychange', function () {
     if (document.visibilityState === 'hidden') flushSave();
+  });
+
+  // The user library (custom categories and pieces) saves itself and then syncs.
+  RP.library.onUserChange(function () {
+    RP.storage.saveUserLibrary(RP.library.getUser());
+    RP.cloud.libraryChanged();
   });
 
   // ---- Layouts ----
@@ -111,7 +149,9 @@
     view.fit();
     clearTimeout(saveTimer);
     savedRev = S.get().rev;
-    setStatus('Saved locally');
+    localState = 'saved';
+    renderStatus();
+    RP.cloud.localChanged();
   }
 
   // Read a stored layout through the same checks as an imported file.
@@ -139,15 +179,19 @@
     showProject(p);
   }
 
-  function deleteLayout(id) {
-    const wasCurrent = id === S.get().project.id;
-    RP.storage.deleteLayout(id);
-    if (!wasCurrent) return;
-    const next = RP.storage.listLayouts()[0];
+  function openNewestOrNew(exceptId) {
+    const next = RP.storage.listLayouts().filter(function (l) { return l.id !== exceptId; })[0];
     const p = next ? loadStored(next.id) : null;
     clearTimeout(saveTimer);
     savedRev = S.get().rev; // nothing to flush: the open layout is gone
     if (p) showProject(p); else newLayout();
+  }
+
+  function deleteLayout(id) {
+    const wasCurrent = id === S.get().project.id;
+    RP.storage.deleteLayout(id);
+    RP.cloud.localChanged();
+    if (wasCurrent) openNewestOrNew(id);
   }
 
   function renameLayout(id, name) {
@@ -160,6 +204,7 @@
     raw.name = name;
     raw.updatedAt = new Date().toISOString();
     RP.storage.saveLayout(raw);
+    RP.cloud.localChanged();
   }
 
   $('layouts-btn').addEventListener('click', function () {
@@ -253,6 +298,21 @@
   $('zoom-out').addEventListener('click', function () { view.zoomBy(0.8); });
   $('zoom-fit').addEventListener('click', function () { view.fit(); });
 
+  $('sync-btn').addEventListener('click', function () { RP.cloud.syncNow(true); });
+
+  // Sign out: push what we can first, and warn before discarding anything unsynced.
+  $('signout-btn').addEventListener('click', async function () {
+    flushSave();
+    if (navigator.onLine) {
+      try { await RP.cloud.syncNow(false); } catch (e) { /* offline or failed: checked below */ }
+    }
+    if (RP.cloud.hasUnsynced() &&
+        !window.confirm('Some changes have not reached the cloud yet. Signing out removes this device’s copy, so they would be lost. Sign out anyway?')) {
+      return;
+    }
+    await RP.auth.signOut();
+  });
+
   function syncToolbar() {
     const state = S.get();
     const r = room();
@@ -309,18 +369,74 @@
   if (window.ResizeObserver) new ResizeObserver(requestDraw).observe(svg);
   else window.addEventListener('resize', requestDraw);
 
-  // ---- Start: reopen the last layout, else the newest, else a fresh one ----
-  const firstId = RP.storage.getCurrentId();
-  let first = firstId ? loadStored(firstId) : null;
-  if (!first) {
-    const newest = RP.storage.listLayouts()[0];
-    first = newest ? loadStored(newest.id) : null;
+  // ---- Sign-in: open the app for a user ----
+  const cloudHooks = {
+    flush: flushSave,
+    currentId: function () { return S.get().project.id; },
+    currentUpdatedAt: function () { return S.get().project.updatedAt; },
+    reloadCurrent: function (project) { showProject(project); },
+    currentRemoved: function () {
+      RP.fields.message('This layout was deleted on another computer.');
+      openNewestOrNew(S.get().project.id);
+    },
+    libraryReplaced: function () { S.setUi({}); },
+    onStatus: function (s) { cloudStatus = s; renderStatus(); },
+  };
+
+  function wait(msToWait) {
+    return new Promise(function (resolve) { setTimeout(resolve, msToWait); });
   }
-  if (first) {
+
+  async function startSession(user, info) {
+    document.body.dataset.state = 'booting';
+    RP.storage.setScope(user.id);
+    RP.storage.adoptLegacy();           // data saved here before accounts existed joins this account
+    RP.library.setUser(RP.storage.loadUserLibrary());
+    active = true;
+    savedRev = S.get().rev;
+    $('account').textContent = user.email;
+    $('account').title = 'Signed in as ' + user.email;
+
+    const firstSync = RP.cloud.start(user, cloudHooks);
+    // A device with nothing saved waits briefly for the cloud copy rather than starting a blank layout.
+    if (!RP.storage.listLayouts().length && !info.offline) {
+      await Promise.race([firstSync, wait(FIRST_SYNC_WAIT_MS)]);
+    }
+
+    const lastId = RP.storage.getCurrentId();
+    let first = lastId ? loadStored(lastId) : null;
+    if (!first) {
+      const newest = RP.storage.listLayouts()[0];
+      first = newest ? loadStored(newest.id) : null;
+    }
+    if (!first) {
+      first = S.createProject('Untitled layout');
+      RP.storage.saveLayout(first);
+    }
+    document.body.dataset.state = 'app';   // show the app before measuring the canvas
     showProject(first);
-  } else {
-    const p = S.createProject('Untitled layout');
-    RP.storage.saveLayout(p);
-    showProject(p);
+    renderStatus();
   }
+
+  // ---- Sign-out: close the app and forget the open data ----
+  function endSession(user, clearCache) {
+    active = false;
+    clearTimeout(saveTimer);
+    RP.cloud.stop();
+    RP.dialogs.closeAll();
+    if (clearCache && user) RP.storage.clearUserData(user.id);
+    RP.storage.setScope(null);
+    RP.library.setUser({ categories: [], items: [], deleted: {} });
+    S.loadProject(S.createProject('Untitled layout'));
+    savedRev = S.get().rev;
+    localState = 'saved';
+    cloudStatus = { state: 'idle', message: '' };
+    $('account').textContent = '';
+  }
+
+  RP.auth.init({
+    onSignedIn: function (user, info) { startSession(user, info); },
+    onSignedOut: endSession,
+    onTokenRefreshed: function () { if (active) RP.cloud.syncNow(false); },
+  });
 })(window.RP = window.RP || {});

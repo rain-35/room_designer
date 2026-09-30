@@ -210,6 +210,55 @@ input[type="search"] {
 .handle-hit { fill: transparent; }
 .handle-dot { fill: var(--panel); stroke: var(--accent); stroke-width: 2; vector-effect: non-scaling-stroke; }
 
+/* Sign-in gate: only the matching screen is visible */
+.boot, .auth-screen { display: none; }
+body[data-state="booting"] .boot {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
+}
+body[data-state="signedout"] .auth-screen {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  overflow-y: auto;
+}
+body:not([data-state="app"]) .toolbar,
+body:not([data-state="app"]) .workspace { display: none; }
+.auth-card {
+  width: min(400px, 100%);
+  padding: 24px 22px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+.auth-card h1 { margin: 0 0 4px; font-size: 22px; }
+.auth-sub { margin: 0 0 16px; color: var(--muted); }
+.auth-card form[hidden] { display: none; }
+.auth-card .row { flex-direction: column; align-items: stretch; gap: 4px; margin-bottom: 12px; }
+.auth-card .row input { width: 100%; min-height: 40px; font-size: 16px; }
+.auth-card input[type="email"], .auth-card input[type="password"] {
+  font: inherit;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 8px;
+}
+.auth-card button.wide { width: 100%; min-height: 42px; margin-top: 4px; }
+.linklike { display: block; margin: 12px auto 0; background: none; border: 0; color: var(--accent); text-decoration: underline; min-height: 0; }
+.auth-msg { min-height: 1.4em; margin: 12px 0 0; color: var(--muted); }
+.auth-msg.bad, .auth-error-only { color: var(--danger); }
+.auth-error-only[hidden] { display: none; }
+
+/* Account and sync controls */
+.account { color: var(--muted); font-size: 12px; max-width: 22ch; overflow: hidden; text-overflow: ellipsis; }
+.save-status.warn { color: var(--warn-text); }
+
 /* Toolbar extras */
 @media (max-width: 1500px) { .brand { display: none; } }
 .project-name { width: 16ch; font-weight: 600; }

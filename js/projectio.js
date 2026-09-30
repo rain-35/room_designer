@@ -77,10 +77,8 @@
   //  - only the name matches: keep the imported one under "Name 2"
   //  - new: add it to the user's library
   function mergeCategories(project) {
-    const user = RP.library.getUser();
     const known = RP.library.allCategories({ categories: [] });
     const fixed = [];
-    let changedLibrary = false;
 
     project.categories.forEach(function (c) {
       if (!c || typeof c.id !== 'string' || typeof c.name !== 'string') return;
@@ -91,8 +89,7 @@
       }
       known.push(copy);
       fixed.push(copy);
-      user.categories.push(copy);
-      changedLibrary = true;
+      RP.library.addUserCategory(copy);
     });
 
     // Pieces pointing at a category nobody defines fall back to Custom.
@@ -103,7 +100,6 @@
     });
 
     project.categories = fixed;
-    if (changedLibrary) RP.storage.saveUserLibrary(user);
     return project;
   }
 
