@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Room Planner</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <header class="toolbar" id="toolbar">
+    <button type="button" id="library-toggle" class="drawer-only">Library</button>
+    <div class="brand">Room Planner</div>
+    <input id="project-name" class="project-name" type="text" autocomplete="off" spellcheck="false" aria-label="Layout name">
+    <button type="button" id="layouts-btn" title="Open, create, rename or delete layouts">Layouts</button>
+    <button type="button" id="undo-btn" title="Undo (Ctrl+Z)">Undo</button>
+    <button type="button" id="redo-btn" title="Redo (Ctrl+Y)">Redo</button>
+    <button type="button" id="import-btn" title="Load a layout from a JSON file">Import</button>
+    <button type="button" id="export-btn" title="Download this layout as a JSON file">Export</button>
+    <input type="file" id="import-file" accept=".json,application/json" hidden>
+    <span class="save-status" id="save-status" role="status"></span>
+
+    <label class="field">
+      <span>Width</span>
+      <input id="room-width" type="text" inputmode="text" autocomplete="off" autocapitalize="off" spellcheck="false" size="9">
+    </label>
+    <label class="field">
+      <span>Length</span>
+      <input id="room-length" type="text" inputmode="text" autocomplete="off" autocapitalize="off" spellcheck="false" size="9">
+    </label>
+    <span class="readout" id="area" title="Room area"></span>
+
+    <label class="field">
+      <span>Grid</span>
+      <select id="grid-size">
+        <option value="1">1"</option>
+        <option value="6">6"</option>
+        <option value="12" selected>12"</option>
+      </select>
+    </label>
+
+    <button type="button" id="snap-toggle" aria-pressed="true" title="Snap to grid, walls and other pieces (hold Alt to bypass)">Snap</button>
+    <button type="button" id="measure-toggle" aria-pressed="false" title="Click two points to measure the distance between them">Measure</button>
+    <button type="button" id="warnings-toggle" aria-pressed="true" title="Show overlap and walkway warnings">Warnings</button>
+    <span class="warn-summary" id="warn-summary" role="status"></span>
+    <button type="button" id="units-toggle" title="Switch between feet/inches and metric"></button>
+    <button type="button" id="theme-toggle" title="Switch light/dark theme"></button>
+    <span class="msg" id="msg" role="status" aria-live="polite"></span>
+  </header>
+
+  <div class="workspace">
+  <aside class="library" id="library" aria-label="Furniture library">
+    <div class="library-head">
+      <input id="library-search" type="search" placeholder="Search furniture" autocomplete="off" aria-label="Search furniture">
+      <button type="button" id="library-close" class="drawer-only" aria-label="Close library">&times;</button>
+    </div>
+    <div class="library-actions">
+      <button type="button" id="new-piece">New piece</button>
+      <button type="button" id="new-category">New category</button>
+    </div>
+    <div class="library-list" id="library-list"></div>
+  </aside>
+
+  <main class="canvas-wrap" id="canvas-wrap">
+    <svg id="canvas" xmlns="http://www.w3.org/2000/svg" aria-label="Room plan, top-down view" role="img"></svg>
+
+    <div class="selection-bar" id="selection-bar" hidden>
+      <span id="selection-name"></span>
+      <button type="button" id="sb-rotate" title="Rotate 45&deg; clockwise (R)">Rotate</button>
+      <button type="button" id="sb-dup">Duplicate</button>
+      <button type="button" id="delete-btn">Delete</button>
+      <button type="button" id="sb-edit" class="drawer-only">Edit</button>
+    </div>
+
+    <div class="scale" id="scale" aria-hidden="true">
+      <div class="scale-label" id="scale-label"></div>
+      <div class="scale-bar" id="scale-bar"></div>
+      <div class="grid-label" id="grid-label"></div>
+    </div>
+
+    <div class="zoom-controls">
+      <button type="button" id="zoom-in" aria-label="Zoom in">+</button>
+      <button type="button" id="zoom-out" aria-label="Zoom out">&minus;</button>
+      <button type="button" id="zoom-fit" aria-label="Fit room to window">Fit</button>
+    </div>
+  </main>
+
+  <aside class="properties" id="properties" aria-label="Properties">
+    <div class="panel-head">
+      <h2 id="props-title">Room</h2>
+      <button type="button" id="props-close" class="drawer-only" aria-label="Close properties">&times;</button>
+    </div>
+
+    <div class="panel-body" id="props-room">
+      <label class="row"><span>Name</span><input id="r-name" type="text" autocomplete="off"></label>
+      <label class="row"><span>Width</span><input id="r-width" type="text" autocomplete="off" autocapitalize="off" spellcheck="false"></label>
+      <label class="row"><span>Length</span><input id="r-length" type="text" autocomplete="off" autocapitalize="off" spellcheck="false"></label>
+      <div class="row"><span>Area</span><span id="r-area"></span></div>
+      <label class="row" title="Gaps from 6&quot; up to this size are flagged as tight walkways"><span>Min walkway</span><input id="r-clearance" type="text" autocomplete="off" autocapitalize="off" spellcheck="false"></label>
+      <p class="hint">Click a piece to edit it. Shortcuts: R rotates, Delete removes.</p>
+    </div>
+
+    <div class="panel-body" id="props-piece" hidden>
+      <label class="row"><span>Name</span><input id="p-name" type="text" autocomplete="off"></label>
+      <label class="row"><span>Category</span><select id="p-category"></select></label>
+      <label class="row"><span id="p-width-label">Width</span><input id="p-width" type="text" autocomplete="off" autocapitalize="off" spellcheck="false"></label>
+      <label class="row" id="p-depth-row"><span>Depth</span><input id="p-depth" type="text" autocomplete="off" autocapitalize="off" spellcheck="false"></label>
+      <label class="row"><span>Rotation</span>
+        <select id="p-rotation">
+          <option value="0">0&deg;</option><option value="45">45&deg;</option><option value="90">90&deg;</option>
+          <option value="135">135&deg;</option><option value="180">180&deg;</option><option value="225">225&deg;</option>
+          <option value="270">270&deg;</option><option value="315">315&deg;</option>
+        </select>
+      </label>
+      <div class="row"><span>Color</span>
+        <span class="color-row"><input id="p-color" type="color" aria-label="Piece color"><button type="button" id="p-color-reset">Category color</button></span>
+      </div>
+      <label class="check"><input id="p-locked" type="checkbox"> Locked</label>
+      <label class="check"><input id="p-ignore" type="checkbox"> Ignore clearance checks</label>
+      <div class="btn-grid">
+        <button type="button" id="p-rot-ccw">&#x21BA; Rotate left</button>
+        <button type="button" id="p-rot-cw">&#x21BB; Rotate right</button>
+        <button type="button" id="p-dup">Duplicate</button>
+        <button type="button" id="p-del" class="danger">Delete</button>
+      </div>
+    </div>
+  </aside>
+  </div>
+
+  <dialog id="modal" aria-label="Dialog"></dialog>
+
+  <script src="js/units.js"></script>
+  <script src="js/geometry.js"></script>
+  <script src="js/library.js"></script>
+  <script src="js/snap.js"></script>
+  <script src="js/checks.js"></script>
+  <script src="js/fields.js"></script>
+  <script src="js/storage.js"></script>
+  <script src="js/state.js"></script>
+  <script src="js/actions.js"></script>
+  <script src="js/render.js"></script>
+  <script src="js/input.js"></script>
+  <script src="js/interact.js"></script>
+  <script src="js/panel.js"></script>
+  <script src="js/props.js"></script>
+  <script src="js/projectio.js"></script>
+  <script src="js/dialogs.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>
