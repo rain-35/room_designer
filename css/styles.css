@@ -308,6 +308,22 @@ button.primary { background: var(--accent); border-color: var(--accent); color: 
 .layout-btns .danger { color: var(--danger); }
 .rename-input { width: 100%; }
 
+/* Polygon rooms: corner handles, wall list */
+.vertices { }
+.vertex, .vertex-add { cursor: pointer; }
+.vertex { cursor: move; }
+.vertex-hit { fill: transparent; }
+.vertex-dot { fill: var(--panel); stroke: var(--accent); stroke-width: 2; vector-effect: non-scaling-stroke; }
+.vertex.selected .vertex-dot { fill: var(--accent); }
+.vertex-add-dot { fill: var(--panel); stroke: var(--accent); stroke-width: 1.5; vector-effect: non-scaling-stroke; opacity: 0.85; }
+.vertex-add-plus { fill: none; stroke: var(--accent); stroke-width: 1.5; vector-effect: non-scaling-stroke; pointer-events: none; }
+.edge-hover { stroke: var(--accent); stroke-width: 5; vector-effect: non-scaling-stroke; opacity: 0.6; }
+.subhead { margin: 14px 0 8px; font-size: 13px; color: var(--muted); }
+.wall-row { gap: 8px; }
+.wall-row input[type="text"] { width: 100px; }
+.wall-angle { color: var(--muted); font-size: 12px; margin-left: auto; min-width: 5ch; text-align: right; }
+.shape-btns { margin-bottom: 4px; }
+
 /* Doors, windows, doorways */
 .wall { stroke-linecap: square; }
 .openings .door-swing {

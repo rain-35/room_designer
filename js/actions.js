@@ -27,7 +27,8 @@
   // Add a library item at (x, y) inches from the room's top-left; default is the room center.
   function addPiece(libItem, x, y) {
     const room = currentRoom();
-    const at = clampToRoom(room, x === undefined ? room.width / 2 : x, y === undefined ? room.length / 2 : y);
+    const spot = RP.roomgeo.interiorPoint(room); // the room's center, or the roomiest spot of an odd shape
+    const at = clampToRoom(room, x === undefined ? spot.x : x, y === undefined ? spot.y : y);
     const piece = {
       id: S.newId('f'),
       type: libItem.type,
@@ -64,11 +65,12 @@
   // Add from a template in RP.openings.TEMPLATES; starts centered on the top wall.
   function addOpening(tpl) {
     const room = currentRoom();
+    const wall = RP.openings.wallKeys(room)[0];
     const op = {
       id: S.newId('o'),
       type: tpl.type,
-      wall: 'top',
-      offset: Math.max(0, (room.width - tpl.width) / 2),
+      wall: wall,
+      offset: Math.max(0, (RP.openings.wallLength(room, wall) - tpl.width) / 2),
       width: tpl.width,
       swing: 'in-left',
     };
@@ -90,7 +92,9 @@
 
   function selectOpening(id) {
     const ui = S.get().ui;
-    if (ui.selectedOpeningId !== id || ui.selectedId !== null) S.setUi({ selectedOpeningId: id, selectedId: null });
+    if (ui.selectedOpeningId !== id || ui.selectedId !== null || ui.selectedVertex !== null) {
+      S.setUi({ selectedOpeningId: id, selectedId: null, selectedVertex: null });
+    }
   }
 
   // Change any fields of a piece. A locked piece keeps its position, size and rotation.
@@ -149,7 +153,9 @@
 
   function select(id) {
     const ui = S.get().ui;
-    if (ui.selectedId !== id || ui.selectedOpeningId !== null) S.setUi({ selectedId: id, selectedOpeningId: null });
+    if (ui.selectedId !== id || ui.selectedOpeningId !== null || ui.selectedVertex !== null) {
+      S.setUi({ selectedId: id, selectedOpeningId: null, selectedVertex: null });
+    }
   }
 
   RP.actions = {

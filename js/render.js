@@ -13,8 +13,11 @@
   const HANDLE_PX = 10;      // visible size of a resize handle
   const HANDLE_HIT_PX = 28;  // touch-friendly hit area
 
-  let svg, roomG, floor, gridMinor, gridMajor, furnG, handlesG, wall, openingsG, overlayG;
-  let labels = {};
+  const VERTEX_PX = 6;       // visible radius of a room corner handle
+  const VERTEX_HIT_PX = 14;  // and its hit area
+  const MIN_LABELED_EDGE_PX = 44; // walls shorter than this on screen get no length label
+
+  let svg, roomG, floor, clipPath, gridG, gridMinor, gridMajor, furnG, handlesG, wall, openingsG, vertexG, labelsG, overlayG;
   let scaleBar, scaleLabel, gridLabel;
   let gridKey = '';
 
@@ -27,17 +30,21 @@
 
   function init(svgEl) {
     svg = svgEl;
+    // The grid is clipped to the room's outline, so it also fits L-shapes and other polygons.
+    const defs = make('defs', null, svg);
+    const clip = make('clipPath', { id: 'room-clip' }, defs);
+    clipPath = make('path', null, clip);
     roomG = make('g', null, svg);
-    floor = make('rect', { class: 'floor' }, roomG);
-    gridMinor = make('path', { class: 'grid-minor' }, roomG);
-    gridMajor = make('path', { class: 'grid-major' }, roomG);
+    floor = make('path', { class: 'floor' }, roomG);
+    gridG = make('g', { 'clip-path': 'url(#room-clip)' }, roomG);
+    gridMinor = make('path', { class: 'grid-minor' }, gridG);
+    gridMajor = make('path', { class: 'grid-major' }, gridG);
     furnG = make('g', { class: 'furniture' }, roomG);
     handlesG = make('g', { class: 'handles' }, roomG);
     wall = make('path', { class: 'wall' }, roomG);
     openingsG = make('g', { class: 'openings' }, roomG);
-    ['top', 'bottom', 'left', 'right'].forEach(function (side) {
-      labels[side] = make('text', { class: 'wall-label' }, roomG);
-    });
+    vertexG = make('g', { class: 'vertices' }, roomG);
+    labelsG = make('g', { class: 'wall-labels' }, roomG);
     overlayG = make('g', { class: 'overlay' }, roomG);
     scaleBar = document.getElementById('scale-bar');
     scaleLabel = document.getElementById('scale-label');
@@ -49,33 +56,68 @@
   }
 
   // Grid lines at every `step` inches; lines on whole feet are the heavier "major" ones.
-  function gridPaths(room, step) {
+  function gridPaths(b, step) {
     let minor = '';
     let major = '';
-    const maxI = Math.floor(room.width / step + 1e-9);
-    for (let i = 1; i <= maxI; i++) {
+    for (let i = Math.ceil((b.minX + 1e-9) / step); i * step < b.maxX - 1e-9; i++) {
       const x = i * step;
-      if (x >= room.width) break;
-      const seg = 'M' + x + ' 0V' + room.length;
+      const seg = 'M' + x + ' ' + b.minY + 'V' + b.maxY;
       if (x % 12 === 0) major += seg; else minor += seg;
     }
-    const maxJ = Math.floor(room.length / step + 1e-9);
-    for (let j = 1; j <= maxJ; j++) {
+    for (let j = Math.ceil((b.minY + 1e-9) / step); j * step < b.maxY - 1e-9; j++) {
       const y = j * step;
-      if (y >= room.length) break;
-      const seg = 'M0 ' + y + 'H' + room.width;
+      const seg = 'M' + b.minX + ' ' + y + 'H' + b.maxX;
       if (y % 12 === 0) major += seg; else minor += seg;
     }
     return { minor: minor, major: major };
   }
 
-  function setText(node, text, x, y, fontSize, rotate) {
-    node.textContent = text;
-    node.setAttribute('x', x);
-    node.setAttribute('y', y);
-    node.setAttribute('font-size', fontSize);
-    if (rotate) node.setAttribute('transform', 'rotate(' + rotate + ' ' + x + ' ' + y + ')');
-    else node.removeAttribute('transform');
+  function polygonPath(pts) {
+    return pts.map(function (p, i) { return (i ? 'L' : 'M') + p.x + ' ' + p.y; }).join('') + 'Z';
+  }
+
+  // A length label beside each wall, turned to run along it, kept a constant size on screen.
+  function drawWallLabels(room, units, view) {
+    while (labelsG.firstChild) labelsG.removeChild(labelsG.firstChild);
+    const px = 1 / view.ppi;
+    const fs = LABEL_PX * px;
+    RP.openings.wallKeys(room).forEach(function (key) {
+      const f = RP.openings.wallFrame(room, key);
+      if (f.length * view.ppi < MIN_LABELED_EDGE_PX) return;
+      const off = LABEL_GAP_PX * px + fs * 0.65;
+      const x = f.start.x + f.a.x * f.length / 2 - f.n.x * off; // outside the room: against the inward normal
+      const y = f.start.y + f.a.y * f.length / 2 - f.n.y * off;
+      let angle = Math.atan2(f.a.y, f.a.x) * 180 / Math.PI;
+      if (angle > 90) angle -= 180;
+      if (angle <= -90) angle += 180;
+      const t = make('text', { class: 'wall-label', x: x, y: y, 'font-size': fs, dy: '0.35em',
+        transform: 'rotate(' + angle + ' ' + x + ' ' + y + ')' }, labelsG);
+      t.textContent = RP.units.formatLength(f.length, units);
+    });
+  }
+
+  // Corner handles for a polygon room (drag to move, click a wall's + to add a corner).
+  function drawVertexHandles(state) {
+    while (vertexG.firstChild) vertexG.removeChild(vertexG.firstChild);
+    const room = state.project.rooms[0];
+    const ui = state.ui;
+    if (!RP.roomgeo.isPolygon(room) || ui.tool !== 'select' || ui.selectedId || ui.selectedOpeningId) return;
+    const px = 1 / state.view.ppi;
+    RP.roomgeo.edges(room).forEach(function (e) {
+      if (e.length * state.view.ppi < 70) return;
+      const mx = (e.a.x + e.b.x) / 2;
+      const my = (e.a.y + e.b.y) / 2;
+      const g = make('g', { class: 'vertex-add', 'data-addvertex': e.index }, vertexG);
+      make('circle', { class: 'vertex-hit', cx: mx, cy: my, r: VERTEX_HIT_PX * px }, g);
+      make('circle', { class: 'vertex-add-dot', cx: mx, cy: my, r: 6 * px }, g);
+      make('path', { class: 'vertex-add-plus', d: 'M' + (mx - 3 * px) + ' ' + my + 'H' + (mx + 3 * px) +
+        'M' + mx + ' ' + (my - 3 * px) + 'V' + (my + 3 * px) }, g);
+    });
+    room.points.forEach(function (p, i) {
+      const g = make('g', { class: 'vertex' + (ui.selectedVertex === i ? ' selected' : ''), 'data-vertex': i }, vertexG);
+      make('circle', { class: 'vertex-hit', cx: p.x, cy: p.y, r: VERTEX_HIT_PX * px }, g);
+      make('circle', { class: 'vertex-dot', cx: p.x, cy: p.y, r: VERTEX_PX * px }, g);
+    });
   }
 
   // Rugs ("floor" layer) draw first so everything else sits on top of them.
@@ -147,7 +189,7 @@
   // The four walls as line segments, leaving a gap wherever a door, window or doorway sits.
   function wallPath(room) {
     let d = '';
-    RP.openings.WALLS.forEach(function (name) {
+    RP.openings.wallKeys(room).forEach(function (name) {
       const f = RP.openings.wallFrame(room, name);
       const gaps = room.openings.filter(function (o) { return o.wall === name; })
         .map(function (o) { return [o.offset, o.offset + o.width]; })
@@ -234,20 +276,20 @@
       overlayText(fmt(gap.distance), (gap.a.x + gap.b.x) / 2, (gap.a.y + gap.b.y) / 2, px, 11, 'gap-text');
     });
 
+    if (state.ui.hoverEdge !== null && RP.roomgeo.isPolygon(room)) {
+      const e = RP.roomgeo.edges(room)[state.ui.hoverEdge];
+      if (e) line(e.a.x, e.a.y, e.b.x, e.b.y, 'edge-hover');
+    }
+
     const piece = state.ui.tool === 'select' ? RP.actions.selectedPiece() : null;
     if (piece) {
-      const d = RP.geometry.wallDistances(piece, room);
+      const d = RP.roomgeo.wallDistances(piece, room);
       Object.keys(d).forEach(function (side) {
-        const dist = d[side].distance;
-        if (Math.abs(dist) < 0.05) return; // touching the wall
+        if (!d[side] || Math.abs(d[side].distance) < 0.05) return; // no wall that way, or touching it
         const from = d[side].from;
-        let to;
-        if (side === 'left') to = { x: 0, y: from.y };
-        else if (side === 'right') to = { x: room.width, y: from.y };
-        else if (side === 'top') to = { x: from.x, y: 0 };
-        else to = { x: from.x, y: room.length };
+        const to = d[side].to;
         line(from.x, from.y, to.x, to.y, 'dim-line');
-        overlayText(fmt(dist), (from.x + to.x) / 2, (from.y + to.y) / 2, px, 11, '');
+        overlayText(fmt(d[side].distance), (from.x + to.x) / 2, (from.y + to.y) / 2, px, 11, '');
       });
     }
 
@@ -279,8 +321,10 @@
     svg.setAttribute('viewBox', RP.geometry.viewBoxFor(view, size).join(' '));
     roomG.setAttribute('transform', 'translate(' + room.x + ' ' + room.y + ')');
 
-    floor.setAttribute('width', room.width);
-    floor.setAttribute('height', room.length);
+    const outline = RP.roomgeo.outline(room);
+    const outlineD = polygonPath(outline);
+    floor.setAttribute('d', outlineD);
+    clipPath.setAttribute('d', outlineD);
     wall.setAttribute('d', wallPath(room));
     drawOpenings(state);
 
@@ -288,9 +332,10 @@
     const step = state.ui.gridSize;
     const minorOn = step * view.ppi >= MIN_GRID_PX;
     const majorOn = 12 * view.ppi >= MIN_GRID_PX;
-    const key = [room.width, room.length, step].join('|');
+    const box = RP.roomgeo.bbox(outline);
+    const key = [box.minX, box.minY, box.maxX, box.maxY, step].join('|');
     if (key !== gridKey) {
-      const paths = gridPaths(room, step);
+      const paths = gridPaths(box, step);
       gridMinor.setAttribute('d', paths.minor);
       gridMajor.setAttribute('d', paths.major);
       gridKey = key;
@@ -300,17 +345,9 @@
 
     drawFurniture(state);
     drawHandles(state);
+    drawVertexHandles(state);
     drawOverlay(state);
-
-    // Wall labels: constant size on screen, so sized in inches from the zoom.
-    const fs = LABEL_PX * px;
-    const gap = LABEL_GAP_PX * px;
-    const widthText = U.formatLength(room.width, units);
-    const lengthText = U.formatLength(room.length, units);
-    setText(labels.top, widthText, room.width / 2, -gap, fs);
-    setText(labels.bottom, widthText, room.width / 2, room.length + gap + fs * 0.75, fs);
-    setText(labels.left, lengthText, -gap, room.length / 2, fs, -90);
-    setText(labels.right, lengthText, room.width + gap, room.length / 2, fs, 90);
+    drawWallLabels(room, units, view);
 
     // Scale bar (HTML overlay, bottom-left) and grid-size label
     const inches = RP.geometry.niceScaleInches(view.ppi, units, SCALE_MAX_PX);

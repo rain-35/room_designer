@@ -52,6 +52,22 @@
       units: units,
     }));
 
+    // Room shape
+    $('r-make-l').addEventListener('click', function () { RP.dialogs.lShapeDialog(); });
+    $('r-make-poly').addEventListener('click', function () { RP.roomedit.toPolygon(); });
+    $('r-make-rect').addEventListener('click', function () {
+      const r = room();
+      const plain = r.points.length === 4 && r.points[0].x === 0 && r.points[0].y === 0 && r.points[1].y === 0 &&
+        r.points[2].x === r.width && r.points[2].y === r.length;
+      if (!plain && !window.confirm('Make the room a plain rectangle the size of its overall box? Extra corners are removed, and so are its doors and windows.')) return;
+      RP.roomedit.toRect();
+      RP.app.fit();
+    });
+    $('r-del-vertex').addEventListener('click', function () {
+      const i = S.get().ui.selectedVertex;
+      if (i !== null && !RP.roomedit.deleteVertex(i)) RP.fields.message('A room needs at least 3 corners, and its walls cannot cross.');
+    });
+
     // Piece
     pieceBoxes = [pieceBox('p-width', 'width'), pieceBox('p-depth', 'depth')];
 
@@ -89,7 +105,10 @@
       if (o) A.updateOpening(o.id, patch);
     }
     $('o-type').addEventListener('change', function () { openingPatch({ type: $('o-type').value }); });
-    $('o-wall').addEventListener('change', function () { openingPatch({ wall: $('o-wall').value }); });
+    $('o-wall').addEventListener('change', function () {
+      const v = $('o-wall').value;
+      openingPatch({ wall: RP.roomgeo.isPolygon(room()) ? Number(v) : v });
+    });
     function swingChanged() { openingPatch({ swing: $('o-opens').value + '-' + $('o-hinge').value }); }
     $('o-opens').addEventListener('change', swingChanged);
     $('o-hinge').addEventListener('change', swingChanged);
@@ -130,10 +149,89 @@
     });
   }
 
+  // The walls of the room, listed for the opening's Wall menu.
+  let wallMenuSignature = '';
+  function syncWallMenu() {
+    const keys = RP.openings.wallKeys(room());
+    const signature = keys.join('|');
+    if (signature === wallMenuSignature) return;
+    wallMenuSignature = signature;
+    const sel = $('o-wall');
+    sel.textContent = '';
+    keys.forEach(function (k) {
+      const o = document.createElement('option');
+      o.value = String(k);
+      o.textContent = RP.openings.wallName(k);
+      sel.appendChild(o);
+    });
+  }
+
+  // The room's Walls list (polygon rooms): one length box per wall.
+  let wallRows = [];
+  function buildWallRows(n) {
+    const list = $('r-walls-list');
+    list.textContent = '';
+    wallRows = [];
+    S.get().ui.hoverEdge = null;
+    for (let i = 0; i < n; i++) {
+      const row = document.createElement('label');
+      row.className = 'row wall-row';
+      const name = document.createElement('span');
+      name.textContent = 'Wall ' + (i + 1);
+      const angle = document.createElement('span');
+      angle.className = 'wall-angle';
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.autocomplete = 'off';
+      input.spellcheck = false;
+      row.appendChild(name);
+      row.appendChild(angle);
+      row.appendChild(input);
+      list.appendChild(row);
+      const box = RP.fields.bindLength(input, {
+        get: function () { const e = RP.roomgeo.edges(room())[i]; return e ? e.length : 0; },
+        set: function (inches) {
+          if (!RP.roomedit.setWallLength(i, inches)) RP.fields.message('That length would make walls cross or overlap.');
+        },
+        min: RP.roomgeo.MIN_EDGE_IN,
+        max: 6000,
+        units: units,
+      });
+      row.addEventListener('mouseenter', function () { S.setUi({ hoverEdge: i }); });
+      row.addEventListener('mouseleave', function () { S.setUi({ hoverEdge: null }); });
+      wallRows.push({ box: box, angle: angle });
+    }
+  }
+
+  function syncRoomShape(state) {
+    const r = room();
+    const poly = RP.roomgeo.isPolygon(r);
+    $('r-shape').textContent = poly ? 'Polygon, ' + r.points.length + ' corners' : 'Rectangle';
+    $('r-poly-hint').hidden = !poly;
+    $('r-make-poly').hidden = poly;
+    $('r-make-rect').hidden = !poly;
+    const vertex = state.ui.selectedVertex;
+    $('r-del-vertex').hidden = !(poly && vertex !== null);
+    $('r-del-vertex').disabled = poly && r.points.length <= 3;
+    $('r-width').disabled = poly;
+    $('r-length').disabled = poly;
+    $('r-walls').hidden = !poly;
+    if (!poly) { wallRows = []; return; }
+    if (wallRows.length !== r.points.length) buildWallRows(r.points.length);
+    const edges = RP.roomgeo.edges(r);
+    wallRows.forEach(function (row, i) {
+      row.box.sync();
+      let deg = Math.atan2(edges[i].dir.y, edges[i].dir.x) * 180 / Math.PI;
+      if (deg < 0) deg += 360;
+      row.angle.textContent = (Math.round(deg * 10) / 10) + '°';
+    });
+  }
+
   function syncOpening(op) {
+    syncWallMenu();
     $('props-title').textContent = RP.openings.label(op);
     setValue($('o-type'), op.type);
-    setValue($('o-wall'), op.wall);
+    setValue($('o-wall'), String(op.wall));
     $('o-offset-label').textContent = RP.openings.offsetLabel(op.wall);
     openingBoxes.forEach(function (b) { b.sync(); });
     $('o-swing-rows').hidden = op.type !== 'door';
@@ -158,7 +256,8 @@
     if (!f) {
       setValue($('r-name'), room().name);
       roomBoxes.forEach(function (b) { b.sync(); });
-      $('r-area').textContent = U.formatArea(room().width, room().length, state.project.units);
+      $('r-area').textContent = U.formatAreaSq(RP.roomgeo.area(room()), state.project.units);
+      syncRoomShape(state);
       return;
     }
 

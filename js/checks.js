@@ -117,6 +117,32 @@
     return best;
   }
 
+  // Shortest gap between a piece and a wall segment a-b: { dist, a (on the piece), b (on the wall) }.
+  // A piece that touches or crosses the wall has gap 0.
+  function segmentGap(shape, a, b) {
+    if (shape.type === 'circle') {
+      const q = closestOnSeg(shape.c, a, b);
+      const v = sub(q, shape.c);
+      const d = len(v) || 1e-9;
+      return { dist: d - shape.r, a: { x: shape.c.x + v.x / d * shape.r, y: shape.c.y + v.y / d * shape.r }, b: q };
+    }
+    const pts = shape.pts;
+    for (let i = 0; i < pts.length; i++) {
+      if (RP.roomgeo.segmentsIntersect(pts[i], pts[(i + 1) % pts.length], a, b)) return { dist: 0, a: a, b: a };
+    }
+    let best = null;
+    pts.forEach(function (p) {
+      const q = closestOnSeg(p, a, b);
+      const d = len(sub(p, q));
+      if (!best || d < best.dist) best = { dist: d, a: p, b: q };
+    });
+    [a, b].forEach(function (end) {
+      const cp = closestOnPoly(end, pts);
+      if (cp.d < best.dist) best = { dist: cp.d, a: cp.q, b: end };
+    });
+    return best;
+  }
+
   function containsPoint(shape, pt) {
     if (shape.type === 'circle') return len(sub(pt, shape.c)) < shape.r;
     return pointInPoly(pt, shape.pts);
@@ -166,16 +192,14 @@
       }
     }
 
-    solid.forEach(function (f) {
+    // Each piece against each wall (straight or angled), at the closest points.
+    const walls = RP.roomgeo.edges(room);
+    solid.forEach(function (f, i) {
       if (f.ignoreClearance) return;
-      const d = RP.geometry.wallDistances(f, room);
-      Object.keys(d).forEach(function (side) {
-        const dist = d[side].distance;
-        if (dist < IGNORE_GAP_IN - EPS || dist >= minClear - EPS) return;
-        const from = d[side].from;
-        const to = side === 'left' ? { x: 0, y: from.y } : side === 'right' ? { x: room.width, y: from.y } :
-          side === 'top' ? { x: from.x, y: 0 } : { x: from.x, y: room.length };
-        result.gaps.push({ kind: 'wall', a: from, b: to, distance: dist });
+      walls.forEach(function (w) {
+        const gap = segmentGap(shapes[i], w.a, w.b);
+        if (!gap || gap.dist < IGNORE_GAP_IN - EPS || gap.dist >= minClear - EPS) return;
+        result.gaps.push({ kind: 'wall', a: gap.a, b: gap.b, distance: gap.dist });
       });
     });
     return result;

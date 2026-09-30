@@ -42,7 +42,7 @@
     }
     const op = Object.assign({ id: '', type: 'door', wall: 'top', offset: 0, swing: 'in-left' }, o);
     if (RP.openings.TYPES.indexOf(op.type) === -1) op.type = 'door';
-    if (RP.openings.WALLS.indexOf(op.wall) === -1) op.wall = 'top';
+    if (!RP.openings.isValidWall(room, op.wall)) op.wall = RP.openings.wallKeys(room)[0];
     if (RP.openings.SWINGS.indexOf(op.swing) === -1) op.swing = 'in-left';
     if (!isNum(op.offset)) op.offset = 0;
     if (!op.id || seen[op.id]) op.id = S.newId('o');
@@ -69,11 +69,27 @@
 
     const seen = {};
     project.rooms = project.rooms.map(function (room) {
-      if (!room || !isNum(room.width) || !isNum(room.length) || room.width <= 0 || room.length <= 0) {
+      if (!room || typeof room !== 'object') throw new Error('A room in this file is not valid.');
+      const polygon = room.shape === 'polygon';
+      if (polygon) {
+        const pts = Array.isArray(room.points) ? room.points : [];
+        if (pts.length < 3 || !pts.every(function (p) { return p && isNum(p.x) && isNum(p.y); }) ||
+            !RP.roomgeo.validPolygon(pts)) {
+          throw new Error('A room outline in this file is not valid (too few corners, tiny walls, or walls that cross).');
+        }
+      } else if (!isNum(room.width) || !isNum(room.length) || room.width <= 0 || room.length <= 0) {
         throw new Error('A room in this file has no valid size.');
       }
       const r = Object.assign({ id: S.newId('r'), name: 'Room', x: 0, y: 0, shape: 'rect', points: [], openings: [] }, room);
+      if (polygon) {
+        r.shape = 'polygon';
+        r.points = room.points.map(function (p) { return { x: p.x, y: p.y }; });
+      } else {
+        r.shape = 'rect';
+        r.points = [];
+      }
       r.furniture = (Array.isArray(room.furniture) ? room.furniture : []).map(function (f) { return cleanPiece(f, seen); });
+      RP.roomgeo.normalize(r); // polygon rooms: box starts at (0, 0) and width/length match it
       const seenOpenings = {};
       r.openings = (Array.isArray(room.openings) ? room.openings : []).map(function (o) { return cleanOpening(o, r, seenOpenings); });
       return r;

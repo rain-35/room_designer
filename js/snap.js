@@ -28,13 +28,15 @@
   function snapPiece(piece, cx, cy, room, others, gridSize, threshold) {
     const h = RP.geometry.halfExtents(piece);
     const out = { x: cx, y: cy, guides: [] };
+    const lines = RP.roomgeo.snapLines(room);
 
     [
       { axis: 'x', center: cx, half: h.hx, size: room.width, lo: 'x0', hi: 'x1', mid: 'xc' },
       { axis: 'y', center: cy, half: h.hy, size: room.length, lo: 'y0', hi: 'y1', mid: 'yc' },
     ].forEach(function (a) {
       const features = [a.center - a.half, a.center + a.half, a.center];
-      const targets = [{ pos: 0, kind: 'wall' }, { pos: a.size, kind: 'wall' }];
+      // Straight walls to line up with (up-down walls for x, left-right walls for y).
+      const targets = (a.axis === 'x' ? lines.xs : lines.ys).map(function (pos) { return { pos: pos, kind: 'wall' }; });
 
       others.forEach(function (o) {
         const oh = RP.geometry.halfExtents(o);
@@ -66,9 +68,8 @@
   // Snap a measuring point to the nearest room corner, piece corner, or grid crossing.
   function snapPoint(pt, room, pieces, gridSize, threshold) {
     const cand = [
-      { x: 0, y: 0 }, { x: room.width, y: 0 }, { x: room.width, y: room.length }, { x: 0, y: room.length },
       { x: Math.round(pt.x / gridSize) * gridSize, y: Math.round(pt.y / gridSize) * gridSize },
-    ];
+    ].concat(RP.roomgeo.outline(room)); // the room's corners
     pieces.forEach(function (p) {
       if (p.shape === 'circle') {
         const r = p.width / 2;

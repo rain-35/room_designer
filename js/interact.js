@@ -114,6 +114,32 @@
       A.updateOpening(drag.id, { wall: hit.wall, offset: offset }, { coalesce: drag.key });
     }
 
+    // ---- Room corners (polygon rooms) ----
+    // Snap a dragged corner to the grid and to the x / y of the room's other corners.
+    function snapCorner(e, index, w) {
+      if (!snapping(e)) return w;
+      const room = S.get().project.rooms[0];
+      const tol = snapThreshold();
+      const grid = S.get().ui.gridSize;
+      const axis = function (value, key) {
+        let best = null;
+        room.points.forEach(function (p, i) {
+          if (i === index) return;
+          const d = Math.abs(p[key] - value);
+          if (d <= tol && (!best || d < best.d)) best = { d: d, v: p[key] };
+        });
+        if (best) return best.v;
+        const g = Math.round(value / grid) * grid;
+        return Math.abs(g - value) <= tol ? g : value;
+      };
+      return { x: axis(w.x, 'x'), y: axis(w.y, 'y') };
+    }
+
+    function startCornerDrag(e, index, alreadyMoved) {
+      S.setUi({ selectedVertex: index });
+      drag = { kind: 'vertex', pointerId: e.pointerId, index: index, moved: !!alreadyMoved, key: S.newId('corner') };
+    }
+
     // ---- Measure tool ----
     function measurePoint(e) {
       const pt = worldAt(e);
@@ -137,6 +163,18 @@
       }
       if (S.get().ui.tool === 'measure') {
         tap = { id: e.pointerId, x: e.clientX, y: e.clientY };
+        return;
+      }
+      const cornerNode = e.target.closest ? e.target.closest('[data-vertex]') : null;
+      if (cornerNode) {
+        startCornerDrag(e, Number(cornerNode.getAttribute('data-vertex')), false);
+        return;
+      }
+      const addNode = e.target.closest ? e.target.closest('[data-addvertex]') : null;
+      if (addNode) {
+        // Clicking a wall's + adds a corner there; keep dragging to place it.
+        const at = RP.roomedit.insertVertex(Number(addNode.getAttribute('data-addvertex')));
+        startCornerDrag(e, at, true);
         return;
       }
       const opNode = e.target.closest ? e.target.closest('[data-opening]') : null;
@@ -180,7 +218,10 @@
       if (nav.pointerCount() > 1) { drag = null; clearGuides(); return; }
       const w = worldAt(e);
       if (drag.kind === 'resize') doResize(w);
-      else if (drag.kind === 'opening') doOpeningDrag(e, w);
+      else if (drag.kind === 'vertex') {
+        const at = snapCorner(e, drag.index, w);
+        if (RP.roomedit.moveVertex(drag.index, at.x, at.y, { coalesce: drag.key })) drag.moved = true;
+      } else if (drag.kind === 'opening') doOpeningDrag(e, w);
       else doMove(e, w);
     });
 
@@ -191,6 +232,8 @@
         if (e.type === 'pointerup' && moved <= TAP_SLOP_PX) placeMeasurePoint(e);
       }
       if (drag && e.pointerId === drag.pointerId) {
+        // A dragged corner: move the room's box back to (0, 0), as part of the same undo step.
+        if (drag.kind === 'vertex' && drag.moved) RP.roomedit.finishVertexMove({ coalesce: drag.key });
         drag = null;
         clearGuides();
       }
@@ -229,6 +272,9 @@
         if (sel || selOp) {
           e.preventDefault();
           A.deleteSelected();
+        } else if (ui.selectedVertex !== null) {
+          e.preventDefault();
+          if (!RP.roomedit.deleteVertex(ui.selectedVertex)) RP.fields.message('A room needs at least 3 corners, and its walls cannot cross.');
         }
       } else if (e.key === 'Escape') {
         if (ui.tool === 'measure') {

@@ -133,6 +133,18 @@
       <label class="row"><span>Width</span><input id="r-width" type="text" autocomplete="off" autocapitalize="off" spellcheck="false"></label>
       <label class="row"><span>Length</span><input id="r-length" type="text" autocomplete="off" autocapitalize="off" spellcheck="false"></label>
       <div class="row"><span>Area</span><span id="r-area"></span></div>
+      <div class="row"><span>Shape</span><span id="r-shape"></span></div>
+      <p class="hint" id="r-poly-hint" hidden>Width and length are the overall size. Drag a corner on the plan, click a wall's + to add a corner, or type wall lengths below.</p>
+      <div class="btn-grid shape-btns">
+        <button type="button" id="r-make-l">L-shape&hellip;</button>
+        <button type="button" id="r-make-poly">Edit corners</button>
+        <button type="button" id="r-make-rect">Make rectangle</button>
+        <button type="button" id="r-del-vertex" class="danger" hidden>Remove corner</button>
+      </div>
+      <div id="r-walls" hidden>
+        <h3 class="subhead">Walls</h3>
+        <div id="r-walls-list"></div>
+      </div>
       <label class="row" title="Gaps from 6&quot; up to this size are flagged as tight walkways"><span>Min walkway</span><input id="r-clearance" type="text" autocomplete="off" autocapitalize="off" spellcheck="false"></label>
       <p class="hint">Click a piece to edit it. Shortcuts: R rotates, Delete removes.</p>
     </div>
@@ -143,11 +155,7 @@
           <option value="door">Door</option><option value="window">Window</option><option value="opening">Open doorway</option>
         </select>
       </label>
-      <label class="row"><span>Wall</span>
-        <select id="o-wall">
-          <option value="top">Top</option><option value="right">Right</option><option value="bottom">Bottom</option><option value="left">Left</option>
-        </select>
-      </label>
+      <label class="row"><span>Wall</span><select id="o-wall"></select></label>
       <label class="row"><span id="o-offset-label">From left</span><input id="o-offset" type="text" autocomplete="off" autocapitalize="off" spellcheck="false"></label>
       <label class="row"><span>Width</span><input id="o-width" type="text" autocomplete="off" autocapitalize="off" spellcheck="false"></label>
       <div id="o-swing-rows">
@@ -199,6 +207,7 @@
 
   <script src="js/units.js"></script>
   <script src="js/geometry.js"></script>
+  <script src="js/roomgeo.js"></script>
   <script src="js/openings.js"></script>
   <script src="js/library.js"></script>
   <script src="js/snap.js"></script>
@@ -207,6 +216,7 @@
   <script src="js/storage.js"></script>
   <script src="js/state.js"></script>
   <script src="js/actions.js"></script>
+  <script src="js/roomedit.js"></script>
   <script src="js/render.js"></script>
   <script src="js/input.js"></script>
   <script src="js/interact.js"></script>

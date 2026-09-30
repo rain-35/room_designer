@@ -284,6 +284,56 @@
     ]);
   }
 
+  // ---- L-shaped room ----
+  function lShapeDialog() {
+    const room = S.get().project.rooms[0];
+    const units = S.get().project.units;
+    const fmt = function (n) { return U.formatLength(Math.round(n), units); };
+    const body = el('div');
+    const w = textInput(fmt(room.width));
+    const l = textInput(fmt(room.length));
+    const nw = textInput(fmt(room.width * 0.4));
+    const nl = textInput(fmt(room.length * 0.4));
+    const corner = el('select');
+    [['tr', 'Top right'], ['tl', 'Top left'], ['br', 'Bottom right'], ['bl', 'Bottom left']].forEach(function (c) {
+      const o = el('option', null, c[1]);
+      o.value = c[0];
+      corner.appendChild(o);
+    });
+    const err = errorLine();
+    body.appendChild(field('Overall width', w));
+    body.appendChild(field('Overall length', l));
+    body.appendChild(field('Missing corner', corner));
+    body.appendChild(field('Notch width', nw));
+    body.appendChild(field('Notch length', nl));
+    body.appendChild(el('p', 'hint', 'The notch is the piece cut out of that corner. Furniture stays where it is. ' +
+      'Doors and windows are removed, because the walls change; add them back afterward. After this you can drag corners and change wall lengths.'));
+    body.appendChild(err);
+
+    open('L-shaped room', body, [
+      { label: 'Cancel', run: function () {} },
+      {
+        label: 'Make L-shape',
+        primary: true,
+        run: function () {
+          const parse = function (t) { return U.parseLength(t, units === 'metric' ? 'cm' : 'in'); };
+          const W = parse(w.value);
+          const L = parse(l.value);
+          const NW = parse(nw.value);
+          const NL = parse(nl.value);
+          if ([W, L, NW, NL].some(function (v) { return v === null; })) { err.textContent = 'Enter all four sizes, like 12\' or 150 in.'; return false; }
+          if (W < 48 || L < 48 || W > 6000 || L > 6000) { err.textContent = 'The overall size must be between 4\' and 500\'.'; return false; }
+          if (NW < 12 || NL < 12 || NW > W - 12 || NL > L - 12) { err.textContent = 'The notch must be at least 12" and leave at least 12" of the room on each side.'; return false; }
+          if (S.get().project.rooms[0].openings.length &&
+              !window.confirm('Making an L-shape removes this room’s doors and windows. Continue?')) return false;
+          RP.roomedit.setLShape(W, L, NW, NL, corner.value);
+          RP.app.fit();
+        },
+      },
+    ]);
+    w.focus();
+  }
+
   // ---- Sync conflict ----
   // Resolves to 'local', 'cloud', 'both', or null (decide later). Waits if another dialog is open.
   function conflictDialog(info) {
@@ -335,6 +385,7 @@
     closeAll: closeAll,
     newCategory: newCategory,
     pieceDialog: pieceDialog,
+    lShapeDialog: lShapeDialog,
     layoutsDialog: layoutsDialog,
     importDialog: importDialog,
     conflictDialog: conflictDialog,

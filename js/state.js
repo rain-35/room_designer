@@ -44,6 +44,8 @@
       gridSize: 12,
       selectedId: null,
       selectedOpeningId: null,
+      selectedVertex: null,   // a room corner (polygon rooms)
+      hoverEdge: null,        // a wall highlighted from the walls list
       snap: true,
       warnings: true,
       tool: 'select',   // 'select' or 'measure'
@@ -73,6 +75,8 @@
     const oid = state.ui.selectedOpeningId;
     if (oid && !state.project.rooms[0].openings.some(function (o) { return o.id === oid; })) state.ui.selectedOpeningId = null;
     state.ui.guides = [];
+    state.ui.selectedVertex = null;
+    state.ui.hoverEdge = null;
     notify();
   }
 
@@ -120,7 +124,7 @@
       history.undo.length = 0;
       history.redo.length = 0;
       lastEdit = { key: null, time: 0 };
-      Object.assign(state.ui, { selectedId: null, selectedOpeningId: null, tool: 'select', guides: [], measure: null });
+      Object.assign(state.ui, { selectedId: null, selectedOpeningId: null, selectedVertex: null, hoverEdge: null, tool: 'select', guides: [], measure: null });
       state.rev++;
       notify();
     },

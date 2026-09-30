@@ -322,7 +322,12 @@
     const u = units();
     widthBox.sync();
     lengthBox.sync();
-    areaEl.textContent = U.formatArea(r.width, r.length, u);
+    areaEl.textContent = U.formatAreaSq(RP.roomgeo.area(r), u);
+    const poly = RP.roomgeo.isPolygon(r);
+    $('room-width').disabled = poly; // a polygon's overall size follows its corners
+    $('room-length').disabled = poly;
+    $('room-width').title = poly ? 'Overall width; change the room’s corners or walls instead' : '';
+    $('room-length').title = poly ? 'Overall length; change the room’s corners or walls instead' : '';
     if (document.activeElement !== nameInput) nameInput.value = state.project.name;
     undoBtn.disabled = !S.canUndo();
     redoBtn.disabled = !S.canRedo();

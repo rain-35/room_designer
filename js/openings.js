@@ -23,12 +23,32 @@
     { key: 'opening-36', type: 'opening', name: 'Open doorway', width: 36 },
   ];
 
+  function isPolygonWall(room) {
+    return RP.roomgeo.isPolygon(room);
+  }
+
+  // The walls of a room: names for a rectangle, corner-order numbers (0, 1, 2...) for a polygon.
+  function wallKeys(room) {
+    if (!isPolygonWall(room)) return WALLS;
+    return room.points.map(function (_, i) { return i; });
+  }
+
+  function isValidWall(room, wall) {
+    if (isPolygonWall(room)) return typeof wall === 'number' && wall >= 0 && wall < room.points.length && wall % 1 === 0;
+    return WALLS.indexOf(wall) !== -1;
+  }
+
   function wallLength(room, wall) {
-    return wall === 'top' || wall === 'bottom' ? room.width : room.length;
+    return wallFrame(room, wall).length;
   }
 
   // start: where the wall starts (room inches); a: unit vector along it; n: unit vector into the room.
+  // In a polygon, wall i runs from corner i to corner i+1.
   function wallFrame(room, wall) {
+    if (isPolygonWall(room)) {
+      const e = RP.roomgeo.edges(room)[wall] || RP.roomgeo.edges(room)[0];
+      return { start: { x: e.a.x, y: e.a.y }, a: e.dir, n: e.n, length: e.length };
+    }
     switch (wall) {
       case 'top': return { start: { x: 0, y: 0 }, a: { x: 1, y: 0 }, n: { x: 0, y: 1 }, length: room.width };
       case 'bottom': return { start: { x: 0, y: room.length }, a: { x: 1, y: 0 }, n: { x: 0, y: -1 }, length: room.width };
@@ -95,11 +115,12 @@
   // Which wall is nearest a point, and how far along it the point is.
   function nearestWall(room, pt) {
     let best = null;
-    WALLS.forEach(function (wall) {
+    wallKeys(room).forEach(function (wall) {
       const f = wallFrame(room, wall);
       const rel = { x: pt.x - f.start.x, y: pt.y - f.start.y };
       const t = rel.x * f.a.x + rel.y * f.a.y;
-      const dist = Math.abs(rel.x * f.n.x + rel.y * f.n.y);
+      const clamped = Math.max(0, Math.min(f.length, t));
+      const dist = Math.hypot(rel.x - f.a.x * clamped, rel.y - f.a.y * clamped);
       if (!best || dist < best.dist) best = { wall: wall, along: t, dist: dist };
     });
     return best;
@@ -112,11 +133,19 @@
 
   // "From left" / "From top" text for the offset field.
   function offsetLabel(wall) {
+    if (typeof wall === 'number') return 'From corner';
     return wall === 'top' || wall === 'bottom' ? 'From left' : 'From top';
+  }
+
+  // Name of a wall for menus: "Top" for a rectangle, "Wall 3" for a polygon.
+  function wallName(wall) {
+    if (typeof wall === 'number') return 'Wall ' + (wall + 1);
+    return wall.charAt(0).toUpperCase() + wall.slice(1);
   }
 
   RP.openings = {
     WALLS: WALLS, TYPES: TYPES, SWINGS: SWINGS, TEMPLATES: TEMPLATES,
+    wallKeys: wallKeys, isValidWall: isValidWall, wallName: wallName,
     wallLength: wallLength, wallFrame: wallFrame, ends: ends, swingOf: swingOf, swingPolygon: swingPolygon,
     clampOpening: clampOpening, clampAll: clampAll, nearestWall: nearestWall, label: label, offsetLabel: offsetLabel,
   };

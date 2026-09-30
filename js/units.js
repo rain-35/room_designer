@@ -106,11 +106,15 @@
     return units === 'metric' ? formatMetric(inches) : formatImperial(inches);
   }
 
-  function formatArea(widthIn, lengthIn, units) {
-    const sq = widthIn * lengthIn;
+  // Area given in square inches.
+  function formatAreaSq(sq, units) {
     if (units === 'metric') return +(sq * 0.00064516).toFixed(2) + ' m²';
     return +(sq / 144).toFixed(1) + ' sq ft';
   }
 
-  RP.units = { INCH_PER_CM, parseLength, formatLength, formatImperial, formatMetric, formatArea };
+  function formatArea(widthIn, lengthIn, units) {
+    return formatAreaSq(widthIn * lengthIn, units);
+  }
+
+  RP.units = { INCH_PER_CM, parseLength, formatLength, formatImperial, formatMetric, formatArea, formatAreaSq };
 })(window.RP = window.RP || {});
