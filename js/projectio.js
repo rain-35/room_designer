@@ -68,6 +68,7 @@
     project.categories = Array.isArray(project.categories) ? project.categories : [];
 
     const seen = {};
+    const seenRooms = {};
     project.rooms = project.rooms.map(function (room) {
       if (!room || typeof room !== 'object') throw new Error('A room in this file is not valid.');
       const polygon = room.shape === 'polygon';
@@ -81,6 +82,11 @@
         throw new Error('A room in this file has no valid size.');
       }
       const r = Object.assign({ id: S.newId('r'), name: 'Room', x: 0, y: 0, shape: 'rect', points: [], openings: [] }, room);
+      if (!isNum(r.x)) r.x = 0;
+      if (!isNum(r.y)) r.y = 0;
+      if (typeof r.name !== 'string' || !r.name.trim()) r.name = 'Room';
+      if (!r.id || seenRooms[r.id]) r.id = S.newId('r');
+      seenRooms[r.id] = true;
       if (polygon) {
         r.shape = 'polygon';
         r.points = room.points.map(function (p) { return { x: p.x, y: p.y }; });

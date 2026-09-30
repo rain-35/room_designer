@@ -29,7 +29,13 @@
 
     function fit() {
       const size = RP.render.getSize();
-      S.setView(G.fitView(size, S.get().project.rooms[0]));
+      S.setView(G.fitView(size, S.room()));
+    }
+
+    // Show every room in the layout
+    function fitHouse() {
+      const size = RP.render.getSize();
+      S.setView(G.fitBox(size, RP.rooms.houseBox(S.get().project)));
     }
 
     svg.addEventListener('wheel', function (e) {
@@ -118,6 +124,7 @@
     return {
       zoomBy: zoomBy,
       fit: fit,
+      fitHouse: fitHouse,
       spaceDown: function () { return spaceDown; },
       pointerCount: function () { return pointers.size; },
     };

@@ -65,18 +65,23 @@
     return out;
   }
 
-  // Snap a measuring point to the nearest room corner, piece corner, or grid crossing.
-  function snapPoint(pt, room, pieces, gridSize, threshold) {
+  // Snap a measuring point (in house inches) to the nearest room corner, piece corner, or grid crossing,
+  // in any room.
+  function snapPoint(pt, project, gridSize, threshold) {
     const cand = [
       { x: Math.round(pt.x / gridSize) * gridSize, y: Math.round(pt.y / gridSize) * gridSize },
-    ].concat(RP.roomgeo.outline(room)); // the room's corners
-    pieces.forEach(function (p) {
-      if (p.shape === 'circle') {
-        const r = p.width / 2;
-        cand.push({ x: p.x - r, y: p.y }, { x: p.x + r, y: p.y }, { x: p.x, y: p.y - r }, { x: p.x, y: p.y + r });
-      } else {
-        RP.geometry.corners(p).forEach(function (c) { cand.push(c); });
-      }
+    ];
+    project.rooms.forEach(function (room) {
+      const at = function (c) { return { x: c.x + room.x, y: c.y + room.y }; };
+      RP.roomgeo.outline(room).forEach(function (c) { cand.push(at(c)); }); // the room's corners
+      room.furniture.forEach(function (p) {
+        if (p.shape === 'circle') {
+          const r = p.width / 2;
+          [{ x: p.x - r, y: p.y }, { x: p.x + r, y: p.y }, { x: p.x, y: p.y - r }, { x: p.x, y: p.y + r }].forEach(function (c) { cand.push(at(c)); });
+        } else {
+          RP.geometry.corners(p).forEach(function (c) { cand.push(at(c)); });
+        }
+      });
     });
     let best = null;
     cand.forEach(function (c) {

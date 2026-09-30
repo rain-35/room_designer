@@ -308,6 +308,34 @@ button.primary { background: var(--accent); border-color: var(--accent); color: 
 .layout-btns .danger { color: var(--danger); }
 .rename-input { width: 100%; }
 
+/* Several rooms: name tags, area labels, the rooms list */
+.room.inactive .floor { fill-opacity: 0.6; }
+.room.inactive .wall { stroke-opacity: 0.6; }
+.room-area {
+  fill: var(--muted);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-weight: 600;
+  text-anchor: middle;
+  pointer-events: none;
+  opacity: 0.8;
+}
+.room-tag { cursor: move; }
+.room-tag rect { fill: var(--panel); stroke: var(--border); stroke-width: 1; vector-effect: non-scaling-stroke; opacity: 0.92; }
+.room-tag.active rect { stroke: var(--accent); fill: var(--accent); }
+.room-tag text {
+  fill: var(--text);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-weight: 600;
+  pointer-events: none;
+}
+.room-tag.active text { fill: var(--accent-text); }
+.subhead.first { margin-top: 0; }
+#rooms-list { display: flex; flex-direction: column; gap: 4px; margin-bottom: 8px; }
+.room-row { display: flex; justify-content: space-between; gap: 8px; width: 100%; text-align: left; }
+.room-row.active { border-color: var(--accent); box-shadow: inset 3px 0 0 var(--accent); }
+.room-row-area { color: var(--muted); font-size: 12px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.total-row { font-weight: 600; margin-bottom: 10px; }
+
 /* Polygon rooms: corner handles, wall list */
 .vertices { }
 .vertex, .vertex-add { cursor: pointer; }

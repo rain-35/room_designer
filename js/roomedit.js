@@ -6,7 +6,7 @@
   const S = RP.state;
   const G = RP.roomgeo;
 
-  function room() { return S.get().project.rooms[0]; }
+  function room() { return S.room(); }
 
   function clonePoints(pts) {
     return pts.map(function (p) { return { x: p.x, y: p.y }; });
@@ -48,7 +48,7 @@
   function toPolygon() {
     if (G.isPolygon(room())) return;
     S.update(function (p) {
-      const r = p.rooms[0];
+      const r = S.activeOf(p);
       r.shape = 'polygon';
       r.points = [{ x: 0, y: 0 }, { x: r.width, y: 0 }, { x: r.width, y: r.length }, { x: 0, y: r.length }];
       rectOpeningsToPolygon(r);
@@ -60,7 +60,7 @@
   function toRect() {
     let dropped = 0;
     S.update(function (p) {
-      const r = p.rooms[0];
+      const r = S.activeOf(p);
       if (!G.isPolygon(r)) return;
       if (isPlainRectangle(r)) {
         r.openings.forEach(function (op) {
@@ -87,7 +87,7 @@
   // Doors and windows are removed (their walls no longer exist); furniture stays where it is.
   function setLShape(w, l, nw, nl, corner) {
     S.update(function (p) {
-      const r = p.rooms[0];
+      const r = S.activeOf(p);
       r.shape = 'polygon';
       r.points = G.lShapePoints(w, l, nw, nl, corner).map(function (q) { return { x: q[0], y: q[1] }; });
       r.openings = [];
@@ -107,7 +107,7 @@
   function moveVertex(i, x, y, opts) {
     if (!G.isPolygon(room()) || !canMoveVertex(i, x, y)) return false;
     S.update(function (p) {
-      const r = p.rooms[0];
+      const r = S.activeOf(p);
       r.points[i].x = x;
       r.points[i].y = y;
       afterShapeChange(r);
@@ -119,8 +119,8 @@
   function finishVertexMove(opts) {
     let shift = null;
     S.update(function (p) {
-      shift = G.normalize(p.rooms[0]);
-      afterShapeChange(p.rooms[0]);
+      shift = G.normalize(S.activeOf(p));
+      afterShapeChange(S.activeOf(p));
     }, opts);
     followShift(shift);
   }
@@ -128,7 +128,7 @@
   // Put a new corner in the middle of wall i. Returns its index.
   function insertVertex(i) {
     S.update(function (p) {
-      const r = p.rooms[0];
+      const r = S.activeOf(p);
       const e = G.edges(r)[i];
       const half = e.length / 2;
       const mid = { x: (e.a.x + e.b.x) / 2, y: (e.a.y + e.b.y) / 2 };
@@ -155,7 +155,7 @@
     if (!G.validPolygon(pts)) return false;
     let shift = null;
     S.update(function (p) {
-      const r = p.rooms[0];
+      const r = S.activeOf(p);
       r.points.splice(i, 1);
       r.openings = r.openings.filter(function (op) { return op.wall !== i; });
       r.openings.forEach(function (op) { if (op.wall > i) op.wall -= 1; });
@@ -178,7 +178,7 @@
     if (!G.validPolygon(pts)) return false;
     let shift = null;
     S.update(function (p) {
-      const r = p.rooms[0];
+      const r = S.activeOf(p);
       r.points[j].x = pts[j].x;
       r.points[j].y = pts[j].y;
       shift = G.normalize(r);

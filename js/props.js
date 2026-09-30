@@ -12,7 +12,7 @@
   let panelEl, roomBoxes, pieceBoxes, openingBoxes;
   const $ = function (id) { return document.getElementById(id); };
 
-  function room() { return S.get().project.rooms[0]; }
+  function room() { return S.room(); }
   function units() { return S.get().project.units; }
   function selId() { return S.get().ui.selectedId; }
 
@@ -32,7 +32,7 @@
     // Room
     $('r-name').addEventListener('change', function () {
       const name = $('r-name').value.trim() || 'Room';
-      S.update(function (p) { p.rooms[0].name = name; });
+      S.update(function (p) { S.activeOf(p).name = name; });
     });
     roomBoxes = ['width', 'length'].map(function (key) {
       return RP.fields.bindLength($('r-' + key), {
@@ -51,6 +51,33 @@
       max: 240,
       units: units,
     }));
+
+    // Where this room sits in the house
+    ['x', 'y'].forEach(function (key) {
+      roomBoxes.push(RP.fields.bindLength($('r-' + key), {
+        get: function () { return room()[key]; },
+        set: function (inches) {
+          const r = room();
+          RP.rooms.setPosition(r.id, key === 'x' ? inches : r.x, key === 'y' ? inches : r.y);
+        },
+        min: 0,
+        max: 100000,
+        units: units,
+      }));
+    });
+
+    // Rooms in the layout
+    $('room-add').addEventListener('click', function () { RP.rooms.addRoom(); RP.app.fitHouse(); });
+    $('room-dup').addEventListener('click', function () { RP.rooms.duplicateRoom(room().id); RP.app.fitHouse(); });
+    $('room-house').addEventListener('click', function () { RP.app.fitHouse(); });
+    $('room-del').addEventListener('click', function () {
+      const r = room();
+      const count = r.furniture.length + r.openings.length;
+      const what = count ? ' and its ' + count + ' piece' + (count === 1 ? '' : 's') + ', doors and windows' : '';
+      if (!window.confirm('Delete "' + r.name + '"' + what + '? You can undo this with Ctrl+Z.')) return;
+      RP.rooms.deleteRoom(r.id);
+      RP.app.fitHouse();
+    });
 
     // Room shape
     $('r-make-l').addEventListener('click', function () { RP.dialogs.lShapeDialog(); });
@@ -203,6 +230,43 @@
     }
   }
 
+  // The list of rooms (click one to edit it) and the house total.
+  let roomsSignature = '';
+  function syncRooms(state) {
+    const rooms = state.project.rooms;
+    const active = S.activeOf(state.project);
+    const u = state.project.units;
+    let total = 0;
+    const rows = rooms.map(function (r) {
+      const a = RP.roomgeo.area(r);
+      total += a;
+      return { room: r, area: U.formatAreaSq(a, u) };
+    });
+    const signature = rows.map(function (x) { return x.room.id + ':' + x.room.name + ':' + x.area; }).join('|') + '|' + active.id;
+    if (signature !== roomsSignature) {
+      roomsSignature = signature;
+      const list = $('rooms-list');
+      list.textContent = '';
+      rows.forEach(function (x) {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'room-row' + (x.room === active ? ' active' : '');
+        const n = document.createElement('span');
+        n.className = 'room-row-name';
+        n.textContent = x.room.name;
+        const a = document.createElement('span');
+        a.className = 'room-row-area';
+        a.textContent = x.area;
+        b.appendChild(n);
+        b.appendChild(a);
+        b.addEventListener('click', function () { S.setActiveRoom(x.room.id); });
+        list.appendChild(b);
+      });
+    }
+    $('house-area').textContent = U.formatAreaSq(total, u);
+    $('room-del').disabled = rooms.length <= 1;
+  }
+
   function syncRoomShape(state) {
     const r = room();
     const poly = RP.roomgeo.isPolygon(r);
@@ -257,6 +321,7 @@
       setValue($('r-name'), room().name);
       roomBoxes.forEach(function (b) { b.sync(); });
       $('r-area').textContent = U.formatAreaSq(RP.roomgeo.area(room()), state.project.units);
+      syncRooms(state);
       syncRoomShape(state);
       return;
     }

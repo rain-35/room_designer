@@ -42,6 +42,7 @@
     rev: 0, // counts project changes; lets autosave and the layout checks know when to rerun
     ui: {
       gridSize: 12,
+      activeRoomId: null,     // which room is being edited (null = the first)
       selectedId: null,
       selectedOpeningId: null,
       selectedVertex: null,   // a room corner (polygon rooms)
@@ -65,15 +66,24 @@
     return JSON.stringify(state.project);
   }
 
+  // The room being edited: the one named by ui.activeRoomId, else the first.
+  function activeOf(project) {
+    const id = state.ui.activeRoomId;
+    for (let i = 0; i < project.rooms.length; i++) if (project.rooms[i].id === id) return project.rooms[i];
+    return project.rooms[0];
+  }
+
   function restore(json) {
     state.project = JSON.parse(json);
     state.project.updatedAt = new Date().toISOString();
     state.rev++;
     lastEdit = { key: null, time: 0 };
     const id = state.ui.selectedId;
-    if (id && !state.project.rooms[0].furniture.some(function (f) { return f.id === id; })) state.ui.selectedId = null;
+    const room = activeOf(state.project);
+    state.ui.activeRoomId = room.id;
+    if (id && !room.furniture.some(function (f) { return f.id === id; })) state.ui.selectedId = null;
     const oid = state.ui.selectedOpeningId;
-    if (oid && !state.project.rooms[0].openings.some(function (o) { return o.id === oid; })) state.ui.selectedOpeningId = null;
+    if (oid && !room.openings.some(function (o) { return o.id === oid; })) state.ui.selectedOpeningId = null;
     state.ui.guides = [];
     state.ui.selectedVertex = null;
     state.ui.hoverEdge = null;
@@ -124,7 +134,7 @@
       history.undo.length = 0;
       history.redo.length = 0;
       lastEdit = { key: null, time: 0 };
-      Object.assign(state.ui, { selectedId: null, selectedOpeningId: null, selectedVertex: null, hoverEdge: null, tool: 'select', guides: [], measure: null });
+      Object.assign(state.ui, { activeRoomId: project.rooms[0].id, selectedId: null, selectedOpeningId: null, selectedVertex: null, hoverEdge: null, tool: 'select', guides: [], measure: null });
       state.rev++;
       notify();
     },
@@ -135,6 +145,15 @@
     },
     setUi: function (patch) {
       Object.assign(state.ui, patch);
+      notify();
+    },
+    activeOf: activeOf,
+    // The room being edited, in the open layout.
+    room: function () { return activeOf(state.project); },
+    // Switch which room is edited (clears the selection).
+    setActiveRoom: function (id) {
+      if (state.ui.activeRoomId === id) return;
+      Object.assign(state.ui, { activeRoomId: id, selectedId: null, selectedOpeningId: null, selectedVertex: null, hoverEdge: null, guides: [] });
       notify();
     },
     createProject: createProject,

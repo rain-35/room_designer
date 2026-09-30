@@ -6,7 +6,7 @@
   const GEOMETRY_KEYS = ['x', 'y', 'width', 'depth', 'rotation']; // frozen while a piece is locked
 
   function currentRoom() {
-    return S.get().project.rooms[0];
+    return S.room();
   }
 
   function findPiece(id) {
@@ -45,7 +45,7 @@
       layer: libItem.categoryId === 'rugs' ? 'floor' : 'standard',
       ignoreClearance: false,
     };
-    S.update(function (p) { p.rooms[0].furniture.push(piece); });
+    S.update(function (p) { S.activeOf(p).furniture.push(piece); });
     S.setUi({ selectedId: piece.id, selectedOpeningId: null });
     return piece;
   }
@@ -75,14 +75,14 @@
       swing: 'in-left',
     };
     RP.openings.clampOpening(room, op);
-    S.update(function (p) { p.rooms[0].openings.push(op); });
+    S.update(function (p) { S.activeOf(p).openings.push(op); });
     S.setUi({ selectedOpeningId: op.id, selectedId: null, tool: 'select', measure: null });
     return op;
   }
 
   function updateOpening(id, patch, opts) {
     S.update(function (p) {
-      const room = p.rooms[0];
+      const room = S.activeOf(p);
       const op = room.openings.find(function (o) { return o.id === id; });
       if (!op) return;
       Object.assign(op, patch);
@@ -100,7 +100,7 @@
   // Change any fields of a piece. A locked piece keeps its position, size and rotation.
   function updatePiece(id, patch, opts) {
     S.update(function (p) {
-      const f = p.rooms[0].furniture.find(function (q) { return q.id === id; });
+      const f = S.activeOf(p).furniture.find(function (q) { return q.id === id; });
       if (!f) return;
       const q = Object.assign({}, patch);
       if (f.locked && q.locked !== false) GEOMETRY_KEYS.forEach(function (k) { delete q[k]; });
@@ -128,7 +128,7 @@
     const room = currentRoom();
     const at = clampToRoom(room, f.x + 12, f.y + 12);
     const copy = Object.assign({}, f, { id: S.newId('f'), x: at.x, y: at.y, locked: false });
-    S.update(function (p) { p.rooms[0].furniture.push(copy); });
+    S.update(function (p) { S.activeOf(p).furniture.push(copy); });
     S.setUi({ selectedId: copy.id });
   }
 
@@ -136,7 +136,7 @@
     const op = selectedOpening();
     if (op) {
       S.update(function (p) {
-        const list = p.rooms[0].openings;
+        const list = S.activeOf(p).openings;
         list.splice(list.findIndex(function (o) { return o.id === op.id; }), 1);
       });
       S.setUi({ selectedOpeningId: null });
@@ -145,7 +145,7 @@
     const f = selectedPiece();
     if (!f || f.locked) return;
     S.update(function (p) {
-      const list = p.rooms[0].furniture;
+      const list = S.activeOf(p).furniture;
       list.splice(list.findIndex(function (q) { return q.id === f.id; }), 1);
     });
     S.setUi({ selectedId: null });

@@ -15,11 +15,16 @@
     let drag = null;     // { kind: 'move' | 'resize', pointerId, ... }
     let tap = null;      // pending measure-tool click
 
-    // Pointer position in room inches (origin at the room's top-left corner)
-    function worldAt(e) {
+    // Pointer position in house inches (the whole canvas)
+    function houseAt(e) {
       const r = svg.getBoundingClientRect();
-      const w = RP.geometry.screenToWorld(S.get().view, RP.render.getSize(), e.clientX - r.left, e.clientY - r.top);
-      const room = S.get().project.rooms[0];
+      return RP.geometry.screenToWorld(S.get().view, RP.render.getSize(), e.clientX - r.left, e.clientY - r.top);
+    }
+
+    // Pointer position in the active room's own inches (origin at that room's top-left corner)
+    function worldAt(e) {
+      const w = houseAt(e);
+      const room = S.room();
       return { x: w.x - room.x, y: w.y - room.y };
     }
 
@@ -63,7 +68,7 @@
       const piece = A.findPiece(drag.id);
       if (!piece) return;
       const ui = S.get().ui;
-      const room = S.get().project.rooms[0];
+      const room = S.room();
       let cx = w.x + drag.dx;
       let cy = w.y + drag.dy;
       let guides = [];
@@ -80,7 +85,7 @@
 
     // ---- Doors and windows: slide along a wall, or jump to another wall ----
     function startOpeningDrag(e, op) {
-      const room = S.get().project.rooms[0];
+      const room = S.room();
       const f = RP.openings.wallFrame(room, op.wall);
       const w = worldAt(e);
       const t = (w.x - f.start.x) * f.a.x + (w.y - f.start.y) * f.a.y;
@@ -90,7 +95,7 @@
     function doOpeningDrag(e, w) {
       const op = A.findOpening(drag.id);
       if (!op) return;
-      const room = S.get().project.rooms[0];
+      const room = S.room();
       const hit = RP.openings.nearestWall(room, w);
       if (hit.wall !== drag.wall) { drag.wall = hit.wall; drag.grab = op.width / 2; }
       let offset = hit.along - drag.grab;
@@ -118,7 +123,7 @@
     // Snap a dragged corner to the grid and to the x / y of the room's other corners.
     function snapCorner(e, index, w) {
       if (!snapping(e)) return w;
-      const room = S.get().project.rooms[0];
+      const room = S.room();
       const tol = snapThreshold();
       const grid = S.get().ui.gridSize;
       const axis = function (value, key) {
@@ -140,12 +145,34 @@
       drag = { kind: 'vertex', pointerId: e.pointerId, index: index, moved: !!alreadyMoved, key: S.newId('corner') };
     }
 
-    // ---- Measure tool ----
+    // ---- Moving a whole room (drag its name tag) ----
+    function startRoomDrag(e) {
+      const room = S.room();
+      const h = houseAt(e);
+      drag = { kind: 'room', pointerId: e.pointerId, id: room.id, dx: room.x - h.x, dy: room.y - h.y, key: S.newId('room') };
+    }
+
+    function doRoomDrag(e) {
+      const project = S.get().project;
+      const room = S.room();
+      const h = houseAt(e);
+      let x = h.x + drag.dx;
+      let y = h.y + drag.dy;
+      if (snapping(e)) {
+        const others = project.rooms.filter(function (r) { return r !== room; });
+        const s = RP.rooms.snapPosition(room, x, y, others, S.get().ui.gridSize, snapThreshold());
+        x = s.x;
+        y = s.y;
+      }
+      RP.rooms.setPosition(room.id, x, y, { coalesce: drag.key });
+      drag.moved = true;
+    }
+
+    // ---- Measure tool (in house inches, so it can measure across rooms) ----
     function measurePoint(e) {
-      const pt = worldAt(e);
+      const pt = houseAt(e);
       if (!snapping(e)) return pt;
-      const room = S.get().project.rooms[0];
-      return RP.snap.snapPoint(pt, room, room.furniture, S.get().ui.gridSize, snapThreshold());
+      return RP.snap.snapPoint(pt, S.get().project, S.get().ui.gridSize, snapThreshold());
     }
 
     function placeMeasurePoint(e) {
@@ -163,6 +190,13 @@
       }
       if (S.get().ui.tool === 'measure') {
         tap = { id: e.pointerId, x: e.clientX, y: e.clientY };
+        return;
+      }
+      // Touching something in another room makes that room the one being edited.
+      const roomNode = e.target.closest ? e.target.closest('[data-room]') : null;
+      if (roomNode && roomNode.getAttribute('data-room') !== S.room().id) S.setActiveRoom(roomNode.getAttribute('data-room'));
+      if (e.target.closest && e.target.closest('[data-roomtag]')) {
+        startRoomDrag(e);
         return;
       }
       const cornerNode = e.target.closest ? e.target.closest('[data-vertex]') : null;
@@ -217,7 +251,8 @@
       if (!drag || e.pointerId !== drag.pointerId) return;
       if (nav.pointerCount() > 1) { drag = null; clearGuides(); return; }
       const w = worldAt(e);
-      if (drag.kind === 'resize') doResize(w);
+      if (drag.kind === 'room') doRoomDrag(e);
+      else if (drag.kind === 'resize') doResize(w);
       else if (drag.kind === 'vertex') {
         const at = snapCorner(e, drag.index, w);
         if (RP.roomedit.moveVertex(drag.index, at.x, at.y, { coalesce: drag.key })) drag.moved = true;
@@ -234,6 +269,7 @@
       if (drag && e.pointerId === drag.pointerId) {
         // A dragged corner: move the room's box back to (0, 0), as part of the same undo step.
         if (drag.kind === 'vertex' && drag.moved) RP.roomedit.finishVertexMove({ coalesce: drag.key });
+        if (drag.kind === 'room' && drag.moved) RP.rooms.finishMove({ coalesce: drag.key });
         drag = null;
         clearGuides();
       }
@@ -259,7 +295,7 @@
       if (ARROWS[e.key] && selOp && ui.tool === 'select') {
         // Arrow keys slide a door or window along its wall
         e.preventDefault();
-        const f = RP.openings.wallFrame(S.get().project.rooms[0], selOp.wall);
+        const f = RP.openings.wallFrame(S.room(), selOp.wall);
         const dir = ARROWS[e.key][0] * f.a.x + ARROWS[e.key][1] * f.a.y;
         if (dir) A.updateOpening(selOp.id, { offset: selOp.offset + dir * (e.shiftKey ? 6 : 1) },
           { coalesce: 'nudge:' + selOp.id, windowMs: 800 });

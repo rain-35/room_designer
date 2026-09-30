@@ -36,14 +36,14 @@
 
   let active = false; // true only while someone is signed in and their data is loaded
 
-  function room() { return S.get().project.rooms[0]; }
+  function room() { return S.room(); }
   function units() { return S.get().project.units; }
 
   // ---- Room size (toolbar and properties panel) ----
   function setRoomDimension(key, inches) {
     S.update(function (p) {
-      p.rooms[0][key] = inches;
-      RP.openings.clampAll(p.rooms[0]); // doors and windows stay on the (now different) walls
+      S.activeOf(p)[key] = inches;
+      RP.openings.clampAll(S.activeOf(p)); // doors and windows stay on the (now different) walls
     });
     view.fit();
   }
@@ -73,6 +73,7 @@
     undo: function () { withRefit(S.undo); },
     redo: function () { withRefit(S.redo); },
     fit: view.fit,
+    fitHouse: view.fitHouse,
   };
   undoBtn.addEventListener('click', RP.app.undo);
   redoBtn.addEventListener('click', RP.app.redo);
@@ -149,7 +150,7 @@
     RP.library.syncProjectCategories(project);
     S.loadProject(project);
     RP.storage.setCurrentId(project.id);
-    view.fit();
+    view.fitHouse();
     clearTimeout(saveTimer);
     savedRev = S.get().rev;
     localState = 'saved';
@@ -300,6 +301,7 @@
   $('zoom-in').addEventListener('click', function () { view.zoomBy(1.25); });
   $('zoom-out').addEventListener('click', function () { view.zoomBy(0.8); });
   $('zoom-fit').addEventListener('click', function () { view.fit(); });
+  $('zoom-house').addEventListener('click', function () { view.fitHouse(); });
 
   $('sync-btn').addEventListener('click', function () { RP.cloud.syncNow(true); });
 
@@ -322,7 +324,7 @@
     const u = units();
     widthBox.sync();
     lengthBox.sync();
-    areaEl.textContent = U.formatAreaSq(RP.roomgeo.area(r), u);
+    areaEl.textContent = U.formatAreaSq(RP.roomgeo.area(r), u) + (state.project.rooms.length > 1 ? ' · house ' + U.formatAreaSq(state.project.rooms.reduce(function (sum, x) { return sum + RP.roomgeo.area(x); }, 0), u) : '');
     const poly = RP.roomgeo.isPolygon(r);
     $('room-width').disabled = poly; // a polygon's overall size follows its corners
     $('room-length').disabled = poly;

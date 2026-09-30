@@ -30,13 +30,17 @@
     };
   }
 
-  function fitView(size, room) {
+  // A view that shows the whole box { minX, minY, maxX, maxY } (house inches) with a margin around it.
+  function fitBox(size, box) {
     const margin = Math.min(70, Math.min(size.w, size.h) * 0.15);
-    const ppi = clampPpi(Math.min(
-      (size.w - 2 * margin) / room.width,
-      (size.h - 2 * margin) / room.length
-    ));
-    return { cx: room.x + room.width / 2, cy: room.y + room.length / 2, ppi: ppi };
+    const w = Math.max(1, box.maxX - box.minX);
+    const h = Math.max(1, box.maxY - box.minY);
+    const ppi = clampPpi(Math.min((size.w - 2 * margin) / w, (size.h - 2 * margin) / h));
+    return { cx: (box.minX + box.maxX) / 2, cy: (box.minY + box.maxY) / 2, ppi: ppi };
+  }
+
+  function fitView(size, room) {
+    return fitBox(size, { minX: room.x, minY: room.y, maxX: room.x + room.width, maxY: room.y + room.length });
   }
 
   // SVG viewBox in inches, matching the canvas aspect ratio exactly (1 unit = 1 inch).
@@ -111,7 +115,7 @@
   }
 
   RP.geometry = {
-    MIN_PPI, MAX_PPI, clampPpi, screenToWorld, anchorView, fitView, viewBoxFor, niceScaleInches,
+    MIN_PPI, MAX_PPI, clampPpi, screenToWorld, anchorView, fitBox, fitView, viewBoxFor, niceScaleInches,
     halfExtents, corners, extremePoint, wallDistances,
   };
 })(window.RP = window.RP || {});

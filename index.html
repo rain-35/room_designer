@@ -118,7 +118,8 @@
     <div class="zoom-controls">
       <button type="button" id="zoom-in" aria-label="Zoom in">+</button>
       <button type="button" id="zoom-out" aria-label="Zoom out">&minus;</button>
-      <button type="button" id="zoom-fit" aria-label="Fit room to window">Fit</button>
+      <button type="button" id="zoom-fit" aria-label="Fit room to window" title="Fit this room to the window">Fit</button>
+      <button type="button" id="zoom-house" aria-label="Fit whole house to window" title="Fit every room to the window">House</button>
     </div>
   </main>
 
@@ -129,7 +130,19 @@
     </div>
 
     <div class="panel-body" id="props-room">
+      <h3 class="subhead first">Rooms</h3>
+      <div id="rooms-list"></div>
+      <div class="row total-row"><span>House total</span><span id="house-area"></span></div>
+      <div class="btn-grid">
+        <button type="button" id="room-add">Add room</button>
+        <button type="button" id="room-dup">Duplicate</button>
+        <button type="button" id="room-house">Fit house</button>
+        <button type="button" id="room-del" class="danger">Delete room</button>
+      </div>
+      <h3 class="subhead">This room</h3>
       <label class="row"><span>Name</span><input id="r-name" type="text" autocomplete="off"></label>
+      <label class="row" title="Where this room's top-left corner sits in the house"><span>Left edge</span><input id="r-x" type="text" autocomplete="off" autocapitalize="off" spellcheck="false"></label>
+      <label class="row" title="Where this room's top-left corner sits in the house"><span>Top edge</span><input id="r-y" type="text" autocomplete="off" autocapitalize="off" spellcheck="false"></label>
       <label class="row"><span>Width</span><input id="r-width" type="text" autocomplete="off" autocapitalize="off" spellcheck="false"></label>
       <label class="row"><span>Length</span><input id="r-length" type="text" autocomplete="off" autocapitalize="off" spellcheck="false"></label>
       <div class="row"><span>Area</span><span id="r-area"></span></div>
@@ -217,6 +230,7 @@
   <script src="js/state.js"></script>
   <script src="js/actions.js"></script>
   <script src="js/roomedit.js"></script>
+  <script src="js/rooms.js"></script>
   <script src="js/render.js"></script>
   <script src="js/input.js"></script>
   <script src="js/interact.js"></script>

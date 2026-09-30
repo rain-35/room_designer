@@ -158,13 +158,18 @@
     return false;
   }
 
-  // -> { overlapIds: {id: true}, gaps: [{ kind: 'piece'|'wall', a, b, distance }] }
+  // Every room is checked on its own, in its own coordinates.
+  // -> { overlapIds: {id: true}, gaps: [{ roomId, kind: 'piece'|'wall', a, b, distance }], blockedDoors: {id: true} }
   function analyze(project) {
-    const room = project.rooms[0];
+    const result = { overlapIds: {}, gaps: [], blockedDoors: {} };
+    project.rooms.forEach(function (room) { analyzeRoom(project, room, result); });
+    return result;
+  }
+
+  function analyzeRoom(project, room, result) {
     const minClear = project.minClearance === undefined ? DEFAULT_MIN_CLEARANCE_IN : project.minClearance;
     const solid = room.furniture.filter(function (f) { return f.layer !== 'floor'; });
     const shapes = solid.map(shapeOf);
-    const result = { overlapIds: {}, gaps: [], blockedDoors: {} };
 
     // A door that opens into the room must have its swing free of furniture.
     (room.openings || []).forEach(function (op) {
@@ -188,7 +193,7 @@
         if (gap.dist < IGNORE_GAP_IN - EPS || gap.dist >= minClear - EPS) continue;
         const others = shapes.filter(function (_, k) { return k !== i && k !== j; });
         if (gapBlocked(gap, others)) continue;
-        result.gaps.push({ kind: 'piece', a: gap.a, b: gap.b, distance: gap.dist });
+        result.gaps.push({ roomId: room.id, kind: 'piece', a: gap.a, b: gap.b, distance: gap.dist });
       }
     }
 
@@ -199,10 +204,9 @@
       walls.forEach(function (w) {
         const gap = segmentGap(shapes[i], w.a, w.b);
         if (!gap || gap.dist < IGNORE_GAP_IN - EPS || gap.dist >= minClear - EPS) return;
-        result.gaps.push({ kind: 'wall', a: gap.a, b: gap.b, distance: gap.dist });
+        result.gaps.push({ roomId: room.id, kind: 'wall', a: gap.a, b: gap.b, distance: gap.dist });
       });
     });
-    return result;
   }
 
   // Cached by the state's edit counter, so panning and zooming do not recompute.

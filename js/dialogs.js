@@ -286,7 +286,7 @@
 
   // ---- L-shaped room ----
   function lShapeDialog() {
-    const room = S.get().project.rooms[0];
+    const room = S.room();
     const units = S.get().project.units;
     const fmt = function (n) { return U.formatLength(Math.round(n), units); };
     const body = el('div');
@@ -324,7 +324,7 @@
           if ([W, L, NW, NL].some(function (v) { return v === null; })) { err.textContent = 'Enter all four sizes, like 12\' or 150 in.'; return false; }
           if (W < 48 || L < 48 || W > 6000 || L > 6000) { err.textContent = 'The overall size must be between 4\' and 500\'.'; return false; }
           if (NW < 12 || NL < 12 || NW > W - 12 || NL > L - 12) { err.textContent = 'The notch must be at least 12" and leave at least 12" of the room on each side.'; return false; }
-          if (S.get().project.rooms[0].openings.length &&
+          if (S.room().openings.length &&
               !window.confirm('Making an L-shape removes this room’s doors and windows. Continue?')) return false;
           RP.roomedit.setLShape(W, L, NW, NL, corner.value);
           RP.app.fit();

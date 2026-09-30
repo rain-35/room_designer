@@ -94,7 +94,7 @@
 
       const isUserCategory = !RP.library.isBuiltInCategory(cat.id) &&
         RP.library.getUser().categories.some(function (c) { return c.id === cat.id; });
-      const inUse = project.rooms[0].furniture.some(function (f) { return f.categoryId === cat.id; });
+      const inUse = project.rooms.some(function (r) { return r.furniture.some(function (f) { return f.categoryId === cat.id; }); });
       if (isUserCategory && !catItems.length && !inUse) {
         summary.appendChild(smallButton('×', 'Delete category ' + cat.name, function () {
           RP.library.removeUserCategory(cat.id);
@@ -187,8 +187,11 @@
         const r = svg.getBoundingClientRect();
         const inside = e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom;
         if (drop && inside) {
-          const room = S.get().project.rooms[0];
           const w = RP.geometry.screenToWorld(S.get().view, RP.render.getSize(), e.clientX - r.left, e.clientY - r.top);
+          // Dropped inside a room: that room gets the piece
+          const target = RP.rooms.roomAt(S.get().project, w);
+          if (target) S.setActiveRoom(target.id);
+          const room = S.room();
           A.addPiece(itemFor(start.btn), w.x - room.x, w.y - room.y);
         }
         ghost.remove();
@@ -239,7 +242,7 @@
       state.project.units,
       RP.library.allCategories(state.project).map(function (c) { return [c.id, c.name, c.color]; }),
       RP.library.getUser().items,
-      state.project.rooms[0].furniture.map(function (f) { return f.categoryId; }).filter(function (id, i, a) { return a.indexOf(id) === i; }),
+      state.project.rooms.map(function (r) { return r.furniture.map(function (f) { return f.categoryId; }); }).join(",").split(",").filter(function (id, i, a) { return a.indexOf(id) === i; }),
     ]);
   }
 
