@@ -65,6 +65,10 @@
         width = snapSize(width);
         depth = snapSize(depth);
       }
+      if (!e.altKey) { // whole inches, unless Alt is held
+        width = Math.max(MIN_PIECE_IN, Math.round(width));
+        depth = Math.max(MIN_PIECE_IN, Math.round(depth));
+      }
       if (drag.circle) width = depth = Math.max(width, depth);
       A.updatePiece(drag.id, {
         width: width,
@@ -133,7 +137,8 @@
     // ---- Room corners (polygon rooms) ----
     // Snap a dragged corner to the grid and to the x / y of the room's other corners.
     function snapCorner(e, index, w) {
-      if (!snapping(e)) return w;
+      const whole = function (p) { return e.altKey ? p : { x: Math.round(p.x), y: Math.round(p.y) }; }; // whole inches unless Alt
+      if (!snapping(e)) return whole(w);
       const room = S.room();
       const tol = snapThreshold();
       const grid = S.get().ui.gridSize;
@@ -165,7 +170,7 @@
           best = { d: d, x: a.x + (out.x - a.x) * target / len, y: a.y + (out.y - a.y) * target / len };
         }
       });
-      return best ? { x: best.x, y: best.y } : out;
+      return best ? { x: best.x, y: best.y } : whole(out);
     }
 
     function startCornerDrag(e, index, alreadyMoved) {
