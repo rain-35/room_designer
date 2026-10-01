@@ -1,0 +1,251 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Room Planner Help</title>
+  <link rel="icon" href="data:,">
+  <style>
+    :root {
+      --bg: #eef0f2; --panel: #ffffff; --border: #c9ced4; --text: #1d2329; --muted: #5d6772;
+      --accent: #2f6fdb; --code: #e8ecf0; color-scheme: light;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root:not([data-theme="light"]) {
+        --bg: #14171a; --panel: #1e2327; --border: #39414a; --text: #e6e9ec; --muted: #9aa5b1;
+        --accent: #6ea0ff; --code: #2b3238; color-scheme: dark;
+      }
+    }
+    :root[data-theme="dark"] {
+      --bg: #14171a; --panel: #1e2327; --border: #39414a; --text: #e6e9ec; --muted: #9aa5b1;
+      --accent: #6ea0ff; --code: #2b3238; color-scheme: dark;
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+    a { color: var(--accent); }
+    header.top { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; gap: 14px; padding: 10px 20px; background: var(--panel); border-bottom: 1px solid var(--border); }
+    header.top h1 { font-size: 17px; margin: 0; flex: 1; }
+    .back { padding: 6px 12px; border: 1px solid var(--accent); border-radius: 6px; text-decoration: none; background: var(--accent); color: var(--bg); font-weight: 600; }
+    .layout { display: flex; gap: 28px; max-width: 1050px; margin: 0 auto; padding: 22px 20px 60px; align-items: flex-start; }
+    nav { position: sticky; top: 70px; flex: 0 0 200px; font-size: 14px; }
+    nav a { display: block; padding: 4px 8px; border-radius: 6px; text-decoration: none; color: var(--text); }
+    nav a:hover { background: var(--panel); }
+    main { flex: 1; min-width: 0; }
+    section { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 6px 22px 16px; margin-bottom: 18px; scroll-margin-top: 70px; }
+    h2 { font-size: 20px; margin: 16px 0 6px; }
+    h3 { font-size: 15px; margin: 18px 0 4px; }
+    p { margin: 8px 0; }
+    ul, ol { margin: 8px 0; padding-left: 22px; }
+    li { margin: 3px 0; }
+    kbd { background: var(--code); border: 1px solid var(--border); border-bottom-width: 2px; border-radius: 4px; padding: 0 5px; font: 12.5px ui-monospace, Consolas, monospace; }
+    .tip { border-left: 3px solid var(--accent); background: var(--code); padding: 8px 12px; border-radius: 0 6px 6px 0; margin: 10px 0; }
+    table { border-collapse: collapse; width: 100%; margin: 8px 0; }
+    th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+    th { color: var(--muted); font-weight: 600; font-size: 13px; }
+    .muted { color: var(--muted); }
+    @media (max-width: 800px) { nav { display: none; } .layout { padding: 14px 12px 40px; } section { padding: 4px 14px 12px; } }
+  </style>
+  <script>
+    try { var t = localStorage.getItem('rp-theme'); if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t); } catch (e) { /* ignore */ }
+  </script>
+</head>
+<body>
+  <header class="top">
+    <h1>Room Planner Help</h1>
+    <a class="back" href="./">Back to the planner</a>
+  </header>
+
+  <div class="layout">
+    <nav aria-label="Help sections">
+      <a href="#tutorial">Quick tutorial</a>
+      <a href="#screen">The screen</a>
+      <a href="#rooms">Rooms</a>
+      <a href="#furniture">Furniture</a>
+      <a href="#openings">Doors &amp; windows</a>
+      <a href="#snapping">Snapping &amp; sizes</a>
+      <a href="#warnings">Warnings</a>
+      <a href="#measure">Measuring</a>
+      <a href="#layouts">Layouts &amp; syncing</a>
+      <a href="#output">Print &amp; export</a>
+      <a href="#keys">Shortcuts</a>
+      <a href="#faq">Troubleshooting</a>
+    </nav>
+
+    <main>
+      <section id="tutorial">
+        <h2>Quick tutorial (5 minutes)</h2>
+        <p>Plan one room from scratch. Everything is drawn to scale: 1 square of the grid is 12 inches (1 foot) by default.</p>
+        <ol>
+          <li><b>Set the room size.</b> In the top bar type a <b>Width</b> and <b>Length</b>, for example <kbd>12'</kbd> and <kbd>14'</kbd>. You can also type <kbd>12' 6"</kbd>, <kbd>150</kbd> (inches) or <kbd>381 cm</kbd>.</li>
+          <li><b>Add furniture.</b> In the left panel, click an item (try <i>Queen bed</i>) to drop it in the room, or drag it onto the plan. Use the search box to find things.</li>
+          <li><b>Move it.</b> Drag the piece. It snaps to the grid, walls and other pieces. Pink guide lines show what it is lined up with. Hold <kbd>Alt</kbd> to move freely.</li>
+          <li><b>Turn and resize it.</b> With the piece selected, press <kbd>R</kbd> to rotate. Drag a corner handle to resize, or type exact sizes in the right panel.</li>
+          <li><b>Add a door and a window.</b> Under <i>Doors &amp; windows</i> in the library, click <i>Door</i>. Slide it along the wall by dragging. Set which way it swings in the right panel.</li>
+          <li><b>Check the fit.</b> Red pieces overlap. Dashed lines mark walkways that are too tight. The numbers shown from a selected piece to each wall are the gaps.</li>
+          <li><b>Print it.</b> Click <b>Print / PNG</b>, pick a paper size and scale such as 1/4" = 1', then print or save an image.</li>
+        </ol>
+        <p>Your work saves automatically. See <a href="#layouts">Layouts &amp; syncing</a> for how it reaches your other computers.</p>
+      </section>
+
+      <section id="screen">
+        <h2>The screen</h2>
+        <table>
+          <tr><th>Area</th><th>What it does</th></tr>
+          <tr><td>Top bar</td><td>Layout name, <b>Layouts</b> list, Undo/Redo, Import/Export, Print / PNG, sync status, room Width/Length and area, <b>Grid</b> size, <b>Snap</b>, <b>Measure</b>, <b>Warnings</b>, units (feet/inches or metric) and light/dark theme.</td></tr>
+          <tr><td>Left panel</td><td>The furniture library: Doors &amp; windows first, then categories (Beds, Dressers, and so on). <b>New piece</b> and <b>New category</b> make your own.</td></tr>
+          <tr><td>Canvas</td><td>The top-down plan. The scale bar and grid size are in the bottom-left corner.</td></tr>
+          <tr><td>Right panel</td><td>Properties of whatever is selected: the room, a piece, or a door/window.</td></tr>
+        </table>
+        <h3>Moving around the plan</h3>
+        <ul>
+          <li><b>Zoom:</b> mouse wheel, or the <b>+</b> / <b>&minus;</b> buttons.</li>
+          <li><b>Pan:</b> hold the middle mouse button and drag, or hold <kbd>Space</kbd> and drag.</li>
+          <li><b>Fit</b> shows the current room. <b>House</b> shows every room.</li>
+        </ul>
+      </section>
+
+      <section id="rooms">
+        <h2>Rooms</h2>
+        <h3>Size and shape</h3>
+        <ul>
+          <li>A new room is a rectangle. Type its Width and Length in the top bar or the right panel.</li>
+          <li><b>L-shape&hellip;</b> (right panel) asks for the overall size and the notch to cut from one corner. Doors and windows on that room are removed because the walls change; add them back afterward.</li>
+          <li><b>Edit corners</b> turns the room into a shape with movable corners. Drag a corner, click the <b>+</b> on a wall to add a corner, click a corner and press <kbd>Delete</kbd> (or <b>Remove corner</b>) to remove it. Type exact wall lengths in the <b>Walls</b> list.</li>
+          <li><b>Make rectangle</b> turns it back into a plain rectangle of the same overall size.</li>
+          <li>Walls cannot cross each other and cannot be shorter than 6 inches.</li>
+        </ul>
+        <h3>Several rooms in one layout</h3>
+        <ul>
+          <li>Open the <b>Rooms</b> list at the top of the right panel. <b>Add room</b> puts a new room beside the others; <b>Duplicate</b> copies the current one; <b>Delete room</b> removes it (a layout always keeps at least one room).</li>
+          <li>Click a room on the plan, or in the list, to work on it. Width, Length, shape buttons and furniture all apply to that room.</li>
+          <li><b>Move a room:</b> drag its name tag, or type <b>Left edge</b> and <b>Top edge</b> in the right panel. Rooms snap to each other's walls.</li>
+          <li>If a door sits on a wall that touches another room, the neighbor's wall opens too, forming a shared doorway.</li>
+          <li>With more than one room the top bar shows this room's area and the house total.</li>
+        </ul>
+      </section>
+
+      <section id="furniture">
+        <h2>Furniture</h2>
+        <ul>
+          <li><b>Add:</b> click an item in the library or drag it onto a room. A piece dropped in a room goes in that room.</li>
+          <li><b>Select:</b> click a piece. The bar on the canvas offers <b>Rotate</b>, <b>Duplicate</b> and <b>Delete</b>.</li>
+          <li><b>Resize:</b> drag a corner handle, or type <b>Width</b> and <b>Depth</b> in the right panel. Circles have one size, the diameter.</li>
+          <li><b>Rotate:</b> <kbd>R</kbd> turns 45&deg; clockwise, <kbd>Shift</kbd>+<kbd>R</kbd> counter-clockwise, or pick an angle in the right panel.</li>
+          <li><b>Color:</b> each category has a color. Change one piece's color in the right panel; <b>Category color</b> resets it.</li>
+          <li><b>Locked</b> keeps a piece from being moved or deleted by accident. <b>Ignore clearance checks</b> stops it from causing walkway warnings (handy for wall art or a rug).</li>
+          <li><b>Rugs</b> and other floor items draw underneath, so furniture on top of them is not flagged as overlapping.</li>
+        </ul>
+        <h3>Your own pieces and categories</h3>
+        <p>Click <b>New piece</b> to save a piece with its own name, size, shape and category, or <b>New category</b> for a new group and color. Use the &#x270E; and &times; buttons beside your own pieces to edit or delete them. Your library is saved with your account, so it follows you to other computers.</p>
+      </section>
+
+      <section id="openings">
+        <h2>Doors &amp; windows</h2>
+        <ul>
+          <li>Add one from <i>Doors &amp; windows</i> in the library: Door, narrow Door, Window, wide Window, or Open doorway.</li>
+          <li><b>Slide</b> it along a wall by dragging. Drag it to another wall to move it there. Click it and use the arrow keys to nudge (<kbd>Shift</kbd> for 6 inches).</li>
+          <li>In the right panel choose its <b>Wall</b>, its distance from the wall's start, its <b>Width</b>, and for a door whether it opens into or out of the room and which side the hinge is on (seen from inside the room, facing the wall).</li>
+          <li>The shaded quarter circle is the door swing. It turns red when furniture is in the way.</li>
+          <li>The Walls list for corner-edited rooms numbers walls 1, 2, 3&hellip; in order around the room.</li>
+        </ul>
+      </section>
+
+      <section id="snapping">
+        <h2>Snapping &amp; sizes</h2>
+        <ul>
+          <li><b>Grid</b> sets the grid squares: 1", 6" or 12".</li>
+          <li><b>Snap</b> (on by default) makes pieces, doors, windows, room corners and rooms jump to nearby grid lines, walls and other pieces. It only grabs when you are close.</li>
+          <li><b>Whole inches:</b> when you drag to resize a piece or move a room corner, sizes change in whole inches, not fractions. Resized pieces also snap to whole grid squares when near.</li>
+          <li><b>Hold <kbd>Alt</kbd></b> while dragging to turn all of this off and get free, fractional sizes.</li>
+          <li>Numbers you <b>type</b> are never rounded. Fractions work: <kbd>19 5/8"</kbd>.</li>
+          <li><b>Units</b> switches the display between feet/inches and metric. Your data is not changed.</li>
+        </ul>
+      </section>
+
+      <section id="warnings">
+        <h2>Warnings</h2>
+        <p>Turn <b>Warnings</b> on or off in the top bar. When on, the layout is checked for:</p>
+        <ul>
+          <li><b>Overlaps:</b> pieces that overlap turn red.</li>
+          <li><b>Tight walkways:</b> a gap of 6 inches up to the minimum between two pieces, or a piece and a wall, gets a dashed line and a size. Set the minimum under <b>Min walkway</b> in the room's properties (default 36 inches).</li>
+          <li><b>Blocked doors:</b> a door whose swing is hit by furniture turns red.</li>
+        </ul>
+        <p class="muted">Gaps smaller than 6 inches are treated as a piece pushed against a wall and are not flagged.</p>
+      </section>
+
+      <section id="measure">
+        <h2>Measuring</h2>
+        <p>Click <b>Measure</b>, then click two points. The distance appears on the plan, and it can span different rooms. Press <kbd>Esc</kbd> to clear it, and again to leave the tool. Snap helps you land exactly on corners and grid lines.</p>
+        <p>When you select a piece, the distances from it to the walls around it are also shown automatically.</p>
+      </section>
+
+      <section id="layouts">
+        <h2>Layouts &amp; syncing</h2>
+        <ul>
+          <li>The <b>Layouts</b> button lists all your layouts. Open, rename or delete them, or start a new one. To compare two arrangements, <b>Export</b> the layout and <b>Import</b> it again; the import opens as a separate copy.</li>
+          <li>The layout <b>name</b> is the box in the top bar.</li>
+          <li><b>Undo / Redo</b> (<kbd>Ctrl</kbd>+<kbd>Z</kbd>, <kbd>Ctrl</kbd>+<kbd>Y</kbd>) cover everything: moves, resizes, new rooms, and so on. A drag counts as one step.</li>
+          <li><b>Autosave:</b> changes are saved on this computer straight away and sent to the cloud when you are online. The text beside <b>Sync</b> shows the state. Click <b>Sync</b> to force it.</li>
+          <li><b>Offline:</b> you can keep working without internet. Changes upload the next time you are online.</li>
+          <li><b>Conflicts:</b> if the same layout was changed on two computers, you are asked what to do: keep this computer's copy, keep the cloud copy, keep both (one becomes a new layout), or decide later.</li>
+          <li><b>Sign out</b> removes the saved copies from this computer. If something has not been uploaded yet you will be warned first.</li>
+        </ul>
+        <div class="tip">Use <b>Export</b> now and then to keep a JSON backup file of a layout.</div>
+      </section>
+
+      <section id="output">
+        <h2>Print &amp; export</h2>
+        <h3>Print / PNG</h3>
+        <ol>
+          <li>Click <b>Print / PNG</b>.</li>
+          <li>Pick a <b>Paper</b> size and a <b>Scale</b>. <i>Best fit</i> picks the largest standard scale that fits, such as 1/4" = 1'.</li>
+          <li>Choose what to show: room names and areas, wall lengths, furniture names, furniture sizes.</li>
+          <li><b>Save PNG</b> downloads an image. <b>Print / PDF</b> opens your browser's print window; choose <i>Save as PDF</i> as the printer for a PDF file.</li>
+        </ol>
+        <div class="tip">Print at <b>100%</b> (not "fit to page") so the scale is true. Measure a wall on the paper against the scale bar to check.</div>
+        <p>The plan has to fit on one page. If it does not, choose a bigger paper size or a smaller scale. The preview shows a warning in that case.</p>
+        <h3>Export / Import (JSON)</h3>
+        <ul>
+          <li><b>Export</b> saves the open layout as a file you can keep or share.</li>
+          <li><b>Import</b> reads such a file. By default it opens as a new layout; you can choose to replace an existing one, after a confirmation.</li>
+        </ul>
+      </section>
+
+      <section id="keys">
+        <h2>Shortcuts</h2>
+        <table>
+          <tr><th>Keys</th><th>Action</th></tr>
+          <tr><td><kbd>R</kbd> / <kbd>Shift</kbd>+<kbd>R</kbd></td><td>Rotate the selected piece 45&deg; clockwise / counter-clockwise</td></tr>
+          <tr><td>Arrow keys</td><td>Nudge the selected piece 1 inch (<kbd>Shift</kbd>: 6 inches); slides a selected door or window along its wall</td></tr>
+          <tr><td><kbd>Delete</kbd></td><td>Delete the selected piece, door/window, or room corner</td></tr>
+          <tr><td><kbd>Esc</kbd></td><td>Deselect, or leave the Measure tool</td></tr>
+          <tr><td><kbd>Ctrl</kbd>+<kbd>Z</kbd></td><td>Undo</td></tr>
+          <tr><td><kbd>Ctrl</kbd>+<kbd>Y</kbd> or <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Z</kbd></td><td>Redo</td></tr>
+          <tr><td><kbd>Alt</kbd> (hold while dragging)</td><td>No snapping, no rounding to whole inches</td></tr>
+          <tr><td><kbd>Space</kbd> + drag, or middle mouse drag</td><td>Pan the view</td></tr>
+          <tr><td>Mouse wheel</td><td>Zoom</td></tr>
+        </table>
+      </section>
+
+      <section id="faq">
+        <h2>Troubleshooting</h2>
+        <h3>I cannot sign in or create an account</h3>
+        <p>Sign-ups are turned off on purpose; the owner's account is made by hand. Use <i>Forgot password?</i> on the sign-in screen to get a reset link by email.</p>
+        <h3>Changes do not show up on my other computer</h3>
+        <p>Click <b>Sync</b> on both computers and look at the status beside it. If it says offline, check the internet connection.</p>
+        <h3>I cannot drag a piece</h3>
+        <p>It may be <b>Locked</b>; uncheck that in the right panel. Or the <b>Measure</b> tool is on; press <kbd>Esc</kbd>.</p>
+        <h3>A piece will not snap where I want, or sizes jump</h3>
+        <p>Hold <kbd>Alt</kbd> while dragging, or turn <b>Snap</b> off. You can always type an exact value instead.</p>
+        <h3>My L-shape or corner move was refused</h3>
+        <p>Walls cannot cross, and each must be at least 6 inches long.</p>
+        <h3>The printout is the wrong size</h3>
+        <p>Make sure the print window is set to 100% / "Actual size", and the paper size matches the one chosen in the Print / PNG window.</p>
+        <h3>The page looks out of date after an update</h3>
+        <p>Reload with <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>R</kbd> to clear the browser's saved copy.</p>
+      </section>
+    </main>
+  </div>
+</body>
+</html>

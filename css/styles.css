@@ -112,6 +112,20 @@ input[type="text"].invalid { border-color: var(--danger); outline: 1px solid var
 button { cursor: pointer; }
 button:hover { border-color: var(--accent); }
 
+.help-link {
+  display: inline-flex;
+  align-items: center;
+  font: inherit;
+  color: var(--text);
+  text-decoration: none;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 10px;
+  min-height: 34px;
+}
+.help-link:hover { border-color: var(--accent); }
+
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 
 .readout { color: var(--muted); font-variant-numeric: tabular-nums; }
