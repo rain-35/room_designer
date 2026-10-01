@@ -50,10 +50,21 @@
         circle: piece.shape === 'circle', key: S.newId('resize') };
     }
 
-    function doResize(w) {
+    // A size within snap range of a whole number of grid squares becomes exactly that.
+    function snapSize(n) {
+      const grid = S.get().ui.gridSize;
+      const g = Math.round(n / grid) * grid;
+      return g >= MIN_PIECE_IN && Math.abs(g - n) <= snapThreshold() ? g : n;
+    }
+
+    function doResize(e, w) {
       const d = { x: w.x - drag.opp.x, y: w.y - drag.opp.y };
       let width = Math.max(MIN_PIECE_IN, (d.x * drag.u.x + d.y * drag.u.y) * drag.c[0]);
       let depth = Math.max(MIN_PIECE_IN, (d.x * drag.v.x + d.y * drag.v.y) * drag.c[1]);
+      if (snapping(e)) {
+        width = snapSize(width);
+        depth = snapSize(depth);
+      }
       if (drag.circle) width = depth = Math.max(width, depth);
       A.updatePiece(drag.id, {
         width: width,
@@ -126,6 +137,7 @@
       const room = S.room();
       const tol = snapThreshold();
       const grid = S.get().ui.gridSize;
+      let hit = false;
       const axis = function (value, key) {
         let best = null;
         room.points.forEach(function (p, i) {
@@ -133,11 +145,27 @@
           const d = Math.abs(p[key] - value);
           if (d <= tol && (!best || d < best.d)) best = { d: d, v: p[key] };
         });
-        if (best) return best.v;
+        if (best) { hit = true; return best.v; }
         const g = Math.round(value / grid) * grid;
-        return Math.abs(g - value) <= tol ? g : value;
+        if (Math.abs(g - value) <= tol) { hit = true; return g; }
+        return value;
       };
-      return { x: axis(w.x, 'x'), y: axis(w.y, 'y') };
+      const out = { x: axis(w.x, 'x'), y: axis(w.y, 'y') };
+      if (hit) return out;
+
+      // Not on a grid line or in line with another corner: make a wall a whole number of grid squares long.
+      const n = room.points.length;
+      let best = null;
+      [(index + n - 1) % n, (index + 1) % n].forEach(function (j) {
+        const a = room.points[j];
+        const len = Math.hypot(out.x - a.x, out.y - a.y);
+        const target = Math.round(len / grid) * grid;
+        const d = Math.abs(target - len);
+        if (target > 0 && len > 0 && d <= tol && (!best || d < best.d)) {
+          best = { d: d, x: a.x + (out.x - a.x) * target / len, y: a.y + (out.y - a.y) * target / len };
+        }
+      });
+      return best ? { x: best.x, y: best.y } : out;
     }
 
     function startCornerDrag(e, index, alreadyMoved) {
@@ -252,7 +280,7 @@
       if (nav.pointerCount() > 1) { drag = null; clearGuides(); return; }
       const w = worldAt(e);
       if (drag.kind === 'room') doRoomDrag(e);
-      else if (drag.kind === 'resize') doResize(w);
+      else if (drag.kind === 'resize') doResize(e, w);
       else if (drag.kind === 'vertex') {
         const at = snapCorner(e, drag.index, w);
         if (RP.roomedit.moveVertex(drag.index, at.x, at.y, { coalesce: drag.key })) drag.moved = true;
