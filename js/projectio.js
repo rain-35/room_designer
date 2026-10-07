@@ -66,6 +66,15 @@
     project.units = project.units === 'metric' ? 'metric' : 'imperial';
     if (!isNum(project.minClearance)) project.minClearance = 36;
     project.categories = Array.isArray(project.categories) ? project.categories : [];
+    // Floating labels
+    const seenLabels = {};
+    project.labels = (Array.isArray(project.labels) ? project.labels : []).filter(function (l) {
+      return l && typeof l === 'object' && typeof l.text === 'string' && l.text.trim() && isNum(l.x) && isNum(l.y);
+    }).map(function (l) {
+      let id = typeof l.id === 'string' && l.id && !seenLabels[l.id] ? l.id : S.newId('t');
+      seenLabels[id] = true;
+      return { id: id, text: l.text.slice(0, 300), x: l.x, y: l.y, size: ['small', 'medium', 'large'].indexOf(l.size) === -1 ? 'medium' : l.size };
+    });
 
     const seen = {};
     const seenRooms = {};
@@ -96,6 +105,10 @@
       }
       r.furniture = (Array.isArray(room.furniture) ? room.furniture : []).map(function (f) { return cleanPiece(f, seen); });
       RP.roomgeo.normalize(r); // polygon rooms: box starts at (0, 0) and width/length match it
+      // The name label shown inside the room, and where the user dragged it
+      if (r.showName !== true) delete r.showName;
+      if (!r.nameAt || !isNum(r.nameAt.x) || !isNum(r.nameAt.y)) delete r.nameAt;
+      else r.nameAt = { x: r.nameAt.x, y: r.nameAt.y };
       // "Keep corners square" only makes sense for a polygon whose walls really are horizontal and vertical
       if (r.squareCorners !== true || !polygon || !RP.roomedit.isSquare(r.points)) delete r.squareCorners;
       const seenOpenings = {};

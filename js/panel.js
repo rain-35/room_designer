@@ -230,6 +230,10 @@
     document.getElementById('new-category').addEventListener('click', function () { RP.dialogs.newCategory(); });
 
     document.getElementById('delete-btn').addEventListener('click', A.deleteSelected);
+    document.getElementById('sb-edit-label').addEventListener('click', function () {
+      const label = A.selectedLabel();
+      if (label) RP.dialogs.labelDialog(label);
+    });
 
     setupDragging();
     renderList();
@@ -254,12 +258,18 @@
     }
     const piece = A.selectedPiece();
     const opening = A.selectedOpening();
+    const label = A.selectedLabel();
     const bar = document.getElementById('selection-bar');
-    bar.hidden = !piece && !opening;
+    bar.hidden = !piece && !opening && !label;
     // Rotate and Duplicate only make sense for furniture
-    document.getElementById('sb-rotate').hidden = !!opening;
-    document.getElementById('sb-dup').hidden = !!opening;
-    if (opening) {
+    document.getElementById('sb-rotate').hidden = !!opening || !!label;
+    document.getElementById('sb-dup').hidden = !!opening || !!label;
+    document.getElementById('sb-edit-label').hidden = !label;
+    if (label) {
+      const first = String(label.text).split('\n')[0];
+      document.getElementById('selection-name').textContent = 'Label · ' + (first.length > 24 ? first.slice(0, 23) + '…' : first);
+      document.getElementById('delete-btn').disabled = false;
+    } else if (opening) {
       document.getElementById('selection-name').textContent = RP.openings.label(opening) + ' · ' +
         RP.units.formatLength(opening.width, state.project.units);
       document.getElementById('delete-btn').disabled = false;

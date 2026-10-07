@@ -334,6 +334,46 @@
     w.focus();
   }
 
+  // ---- Floating label: new, or edit an existing one ----
+  function labelDialog(existing) {
+    const body = el('div');
+    const text = el('textarea');
+    text.value = existing ? existing.text : '';
+    text.placeholder = 'e.g. Primary suite';
+    text.spellcheck = false;
+    const size = el('select');
+    [['small', 'Small'], ['medium', 'Medium'], ['large', 'Large']].forEach(function (s) {
+      const o = el('option', null, s[1]);
+      o.value = s[0];
+      size.appendChild(o);
+    });
+    size.value = existing ? existing.size : 'medium';
+    const err = errorLine();
+    body.appendChild(field('Text', text));
+    body.appendChild(field('Size', size));
+    body.appendChild(el('p', 'hint', 'Press Enter for a new line. Drag the label on the plan to move it; double-click it to edit.'));
+    body.appendChild(err);
+
+    open(existing ? 'Edit label' : 'Add a label', body, [
+      { label: 'Cancel', run: function () {} },
+      {
+        label: existing ? 'Save' : 'Add label',
+        primary: true,
+        run: function () {
+          const t = text.value.replace(/\s+$/, '').slice(0, 300);
+          if (!t.trim()) { err.textContent = 'Type some text for the label.'; return false; }
+          if (existing) {
+            RP.actions.updateLabel(existing.id, { text: t, size: size.value });
+          } else {
+            const v = S.get().view;
+            RP.actions.addLabel(t, size.value, Math.round(v.cx), Math.round(v.cy));
+          }
+        },
+      },
+    ]);
+    text.focus();
+  }
+
   // ---- Print / PNG ----
   function printDialog() {
     const project = S.get().project;
@@ -489,6 +529,7 @@
     pieceDialog: pieceDialog,
     lShapeDialog: lShapeDialog,
     printDialog: printDialog,
+    labelDialog: labelDialog,
     layoutsDialog: layoutsDialog,
     importDialog: importDialog,
     conflictDialog: conflictDialog,

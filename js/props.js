@@ -34,6 +34,13 @@
       const name = $('r-name').value.trim() || 'Room';
       S.update(function (p) { S.activeOf(p).name = name; });
     });
+    $('r-showname').addEventListener('change', function () {
+      const on = $('r-showname').checked;
+      S.update(function (p) { S.activeOf(p).showName = on; });
+    });
+    $('r-name-center').addEventListener('click', function () {
+      S.update(function (p) { delete S.activeOf(p).nameAt; });
+    });
     roomBoxes = ['width', 'length'].map(function (key) {
       return RP.fields.bindLength($('r-' + key), {
         get: function () { return room()[key]; },
@@ -334,6 +341,8 @@
       setValue($('r-name'), room().name);
       roomBoxes.forEach(function (b) { b.sync(); });
       $('r-area').textContent = U.formatAreaSq(RP.roomgeo.area(room()), state.project.units);
+      $('r-showname').checked = !!room().showName;
+      $('r-name-center').hidden = !(room().showName && room().nameAt);
       syncRooms(state);
       syncRoomShape(state);
       return;

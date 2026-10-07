@@ -46,7 +46,7 @@
       ignoreClearance: false,
     };
     S.update(function (p) { S.activeOf(p).furniture.push(piece); });
-    S.setUi({ selectedId: piece.id, selectedOpeningId: null });
+    S.setUi({ selectedId: piece.id, selectedOpeningId: null, selectedLabelId: null });
     return piece;
   }
 
@@ -76,7 +76,7 @@
     };
     RP.openings.clampOpening(room, op);
     S.update(function (p) { S.activeOf(p).openings.push(op); });
-    S.setUi({ selectedOpeningId: op.id, selectedId: null, tool: 'select', measure: null });
+    S.setUi({ selectedOpeningId: op.id, selectedId: null, selectedLabelId: null, tool: 'select', measure: null });
     return op;
   }
 
@@ -92,8 +92,8 @@
 
   function selectOpening(id) {
     const ui = S.get().ui;
-    if (ui.selectedOpeningId !== id || ui.selectedId !== null || ui.selectedVertex !== null) {
-      S.setUi({ selectedOpeningId: id, selectedId: null, selectedVertex: null });
+    if (ui.selectedOpeningId !== id || ui.selectedId !== null || ui.selectedVertex !== null || ui.selectedLabelId !== null) {
+      S.setUi({ selectedOpeningId: id, selectedId: null, selectedVertex: null, selectedLabelId: null });
     }
   }
 
@@ -132,7 +132,49 @@
     S.setUi({ selectedId: copy.id });
   }
 
+  // ---- Floating labels (text notes anywhere in the house) ----
+  const LABEL_SIZES = ['small', 'medium', 'large'];
+
+  function findLabel(id) {
+    const list = S.get().project.labels || [];
+    for (let i = 0; i < list.length; i++) if (list[i].id === id) return list[i];
+    return null;
+  }
+
+  function selectedLabel() {
+    const id = S.get().ui.selectedLabelId;
+    return id ? findLabel(id) : null;
+  }
+
+  // Add a label at (x, y) in house inches.
+  function addLabel(text, size, x, y) {
+    const label = { id: S.newId('t'), text: text, x: x, y: y, size: LABEL_SIZES.indexOf(size) === -1 ? 'medium' : size };
+    S.update(function (p) { (p.labels = p.labels || []).push(label); });
+    S.setUi({ selectedLabelId: label.id, selectedId: null, selectedOpeningId: null, selectedVertex: null, tool: 'select', measure: null });
+    return label;
+  }
+
+  function updateLabel(id, patch, opts) {
+    S.update(function (p) {
+      const l = (p.labels || []).find(function (q) { return q.id === id; });
+      if (l) Object.assign(l, patch);
+    }, opts);
+  }
+
+  function selectLabel(id) {
+    const ui = S.get().ui;
+    if (ui.selectedLabelId !== id || ui.selectedId !== null || ui.selectedOpeningId !== null || ui.selectedVertex !== null) {
+      S.setUi({ selectedLabelId: id, selectedId: null, selectedOpeningId: null, selectedVertex: null });
+    }
+  }
+
   function deleteSelected() {
+    const label = selectedLabel();
+    if (label) {
+      S.update(function (p) { p.labels.splice(p.labels.findIndex(function (l) { return l.id === label.id; }), 1); });
+      S.setUi({ selectedLabelId: null });
+      return;
+    }
     const op = selectedOpening();
     if (op) {
       S.update(function (p) {
@@ -153,8 +195,8 @@
 
   function select(id) {
     const ui = S.get().ui;
-    if (ui.selectedId !== id || ui.selectedOpeningId !== null || ui.selectedVertex !== null) {
-      S.setUi({ selectedId: id, selectedOpeningId: null, selectedVertex: null });
+    if (ui.selectedId !== id || ui.selectedOpeningId !== null || ui.selectedVertex !== null || ui.selectedLabelId !== null) {
+      S.setUi({ selectedId: id, selectedOpeningId: null, selectedVertex: null, selectedLabelId: null });
     }
   }
 
@@ -173,5 +215,10 @@
     addOpening: addOpening,
     updateOpening: updateOpening,
     selectOpening: selectOpening,
+    findLabel: findLabel,
+    selectedLabel: selectedLabel,
+    addLabel: addLabel,
+    updateLabel: updateLabel,
+    selectLabel: selectLabel,
   };
 })(window.RP = window.RP || {});

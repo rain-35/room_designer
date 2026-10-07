@@ -81,6 +81,7 @@
     if (Math.abs(dx) > 1e-9 || Math.abs(dy) > 1e-9) {
       room.points.forEach(function (p) { p.x += dx; p.y += dy; });
       room.furniture.forEach(function (f) { f.x += dx; f.y += dy; });
+      if (room.nameAt) { room.nameAt.x += dx; room.nameAt.y += dy; }
     } else {
       room.points.forEach(function (p) { if (Math.abs(p.x) < 1e-9) p.x = 0; if (Math.abs(p.y) < 1e-9) p.y = 0; });
     }

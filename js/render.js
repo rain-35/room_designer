@@ -20,7 +20,10 @@
   const MIN_LABELED_EDGE_PX = 44; // walls shorter than this on screen get no length label
   const TAG_FONT_PX = 12;    // room name tag
 
-  let svg, housesG, houseOverlayG;
+  const FLOAT_LABEL_PX = { small: 12, medium: 16, large: 24 }; // floating label text size on screen
+  const ROOM_NAME_PX = 14;   // room name shown inside the room
+
+  let svg, housesG, labelsG, houseOverlayG;
   let scaleBar, scaleLabel, gridLabel;
   const views = {};          // room id -> the room's drawing nodes
   let orderKey = '';
@@ -40,6 +43,7 @@
     svg = svgEl;
     make('defs', null, svg);
     housesG = make('g', null, svg);
+    labelsG = make('g', { class: 'float-labels' }, svg); // floating text notes, above the rooms
     houseOverlayG = make('g', { class: 'overlay' }, svg); // things in house coordinates (the measure tool)
     scaleBar = document.getElementById('scale-bar');
     scaleLabel = document.getElementById('scale-label');
@@ -158,12 +162,24 @@
   function drawRoomInfo(rv, room, state, active) {
     clear(rv.infoG);
     const project = state.project;
-    if (project.rooms.length < 2) return;
     const px = 1 / state.view.ppi;
     const units = project.units;
 
+    // The room's name in the middle (or wherever the user dragged it), to tell odd shapes apart
+    let nameAt = null;
+    if (room.showName) {
+      nameAt = room.nameAt || RP.roomgeo.interiorPoint(room);
+      const ng = make('g', { class: 'room-name', 'data-roomname': room.id }, rv.infoG);
+      const hw = (room.name.length * ROOM_NAME_PX * 0.3 + 6) * px;
+      make('rect', { class: 'room-name-hit', x: nameAt.x - hw, y: nameAt.y - 12 * px, width: hw * 2, height: 24 * px }, ng);
+      const nt = make('text', { x: nameAt.x, y: nameAt.y, 'font-size': ROOM_NAME_PX * px, dy: '0.35em' }, ng);
+      nt.textContent = room.name;
+    }
+
+    if (project.rooms.length < 2) return;
+
     if (Math.min(room.width, room.length) * state.view.ppi >= 70) {
-      const spot = RP.roomgeo.interiorPoint(room);
+      const spot = nameAt ? { x: nameAt.x, y: nameAt.y + 18 * px } : RP.roomgeo.interiorPoint(room);
       const t = make('text', { class: 'room-area', x: spot.x, y: spot.y, 'font-size': 15 * px, dy: '0.35em' }, rv.infoG);
       t.textContent = RP.units.formatAreaSq(RP.roomgeo.area(room), units);
     }
@@ -373,6 +389,30 @@
     dot(m.a);
   }
 
+  // Floating text notes. Several lines are allowed. A selected label gets a dashed box.
+  function drawFloatLabels(state) {
+    clear(labelsG);
+    const px = 1 / state.view.ppi;
+    (state.project.labels || []).forEach(function (label) {
+      const size = (FLOAT_LABEL_PX[label.size] || FLOAT_LABEL_PX.medium) * px;
+      const lines = String(label.text).split('\n');
+      const widest = lines.reduce(function (m, l) { return Math.max(m, l.length); }, 1);
+      const w = widest * size * 0.58 + 10 * px;
+      const h = lines.length * size * 1.25 + 6 * px;
+      const g = make('g', {
+        class: 'float-label' + (label.id === state.ui.selectedLabelId ? ' selected' : ''),
+        'data-label': label.id,
+      }, labelsG);
+      make('rect', { class: 'float-label-box', x: label.x - w / 2, y: label.y - h / 2, width: w, height: h, rx: 3 * px }, g);
+      const t = make('text', { x: label.x, y: label.y - (lines.length - 1) * size * 0.625, 'font-size': size, dy: '0.35em' }, g);
+      lines.forEach(function (line, i) {
+        const span = make('tspan', { x: label.x, dy: i === 0 ? '0.35em' : '1.25em' }, t);
+        span.textContent = line || ' ';
+      });
+      t.removeAttribute('dy');
+    });
+  }
+
   function drawRoom(rv, room, state, active) {
     const view = state.view;
     const units = state.project.units;
@@ -434,6 +474,7 @@
       drawRoom(rv, room, state, room === activeRoom);
     });
     orderKey = key;
+    drawFloatLabels(state);
     drawMeasure(state);
 
     // Scale bar (HTML overlay, bottom-left) and grid-size label

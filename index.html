@@ -78,6 +78,7 @@
     </label>
 
     <button type="button" id="snap-toggle" aria-pressed="true" title="Snap to grid, walls and other pieces (hold Alt to bypass)">Snap</button>
+    <button type="button" id="label-btn" title="Add a floating text label anywhere on the plan">Add label</button>
     <button type="button" id="measure-toggle" aria-pressed="false" title="Click two points to measure the distance between them">Measure</button>
     <button type="button" id="warnings-toggle" aria-pressed="true" title="Show overlap and walkway warnings">Warnings</button>
     <span class="warn-summary" id="warn-summary" role="status"></span>
@@ -105,6 +106,7 @@
 
     <div class="selection-bar" id="selection-bar" hidden>
       <span id="selection-name"></span>
+      <button type="button" id="sb-edit-label" hidden>Edit text</button>
       <button type="button" id="sb-rotate" title="Rotate 45&deg; clockwise (R)">Rotate</button>
       <button type="button" id="sb-dup">Duplicate</button>
       <button type="button" id="delete-btn">Delete</button>
@@ -147,6 +149,8 @@
       <label class="row" title="Where this room's top-left corner sits in the house"><span>Top edge</span><input id="r-y" type="text" autocomplete="off" autocapitalize="off" spellcheck="false"></label>
       <label class="row"><span>Width</span><input id="r-width" type="text" autocomplete="off" autocapitalize="off" spellcheck="false"></label>
       <label class="row"><span>Length</span><input id="r-length" type="text" autocomplete="off" autocapitalize="off" spellcheck="false"></label>
+      <label class="check" title="Show this room's name in the middle of the room; drag it on the plan to move it"><input id="r-showname" type="checkbox"> Show name in the room</label>
+      <button type="button" id="r-name-center" hidden>Center the name</button>
       <div class="row"><span>Area</span><span id="r-area"></span></div>
       <div class="row"><span>Shape</span><span id="r-shape"></span></div>
       <p class="hint" id="r-poly-hint" hidden>Width and length are the overall size. Drag a wall to move it, drag a corner to move it, click a wall's + to add a corner (with corners kept square, drag it in to make an L), or type wall lengths below.</p>

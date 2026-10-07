@@ -29,6 +29,7 @@
         openings: [],
         furniture: [],
       }],
+      labels: [],         // floating text notes: { id, text, x, y, size } in house inches
       categories: [],
       ownerId: '',
       createdAt: now,
@@ -46,6 +47,7 @@
       selectedId: null,
       selectedOpeningId: null,
       selectedVertex: null,   // a room corner (polygon rooms)
+      selectedLabelId: null,  // a floating label
       hoverEdge: null,        // a wall highlighted from the walls list
       snap: true,
       warnings: true,
@@ -84,6 +86,8 @@
     if (id && !room.furniture.some(function (f) { return f.id === id; })) state.ui.selectedId = null;
     const oid = state.ui.selectedOpeningId;
     if (oid && !room.openings.some(function (o) { return o.id === oid; })) state.ui.selectedOpeningId = null;
+    const lid = state.ui.selectedLabelId;
+    if (lid && !(state.project.labels || []).some(function (l) { return l.id === lid; })) state.ui.selectedLabelId = null;
     state.ui.guides = [];
     state.ui.selectedVertex = null;
     state.ui.hoverEdge = null;
@@ -134,7 +138,7 @@
       history.undo.length = 0;
       history.redo.length = 0;
       lastEdit = { key: null, time: 0 };
-      Object.assign(state.ui, { activeRoomId: project.rooms[0].id, selectedId: null, selectedOpeningId: null, selectedVertex: null, hoverEdge: null, tool: 'select', guides: [], measure: null });
+      Object.assign(state.ui, { activeRoomId: project.rooms[0].id, selectedId: null, selectedOpeningId: null, selectedVertex: null, selectedLabelId: null, hoverEdge: null, tool: 'select', guides: [], measure: null });
       state.rev++;
       notify();
     },
@@ -153,7 +157,7 @@
     // Switch which room is edited (clears the selection).
     setActiveRoom: function (id) {
       if (state.ui.activeRoomId === id) return;
-      Object.assign(state.ui, { activeRoomId: id, selectedId: null, selectedOpeningId: null, selectedVertex: null, hoverEdge: null, guides: [] });
+      Object.assign(state.ui, { activeRoomId: id, selectedId: null, selectedOpeningId: null, selectedVertex: null, selectedLabelId: null, hoverEdge: null, guides: [] });
       notify();
     },
     createProject: createProject,

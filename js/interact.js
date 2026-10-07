@@ -336,11 +336,32 @@
         tap = { id: e.pointerId, x: e.clientX, y: e.clientY };
         return;
       }
+      // A floating label: select it and drag to move
+      const labelNode = e.target.closest ? e.target.closest('[data-label]') : null;
+      if (labelNode) {
+        const label = A.findLabel(labelNode.getAttribute('data-label'));
+        if (label) {
+          A.selectLabel(label.id);
+          const h = houseAt(e);
+          drag = { kind: 'label', pointerId: e.pointerId, id: label.id, dx: label.x - h.x, dy: label.y - h.y, key: S.newId('label') };
+        }
+        return;
+      }
       // Touching something in another room makes that room the one being edited.
       const roomNode = e.target.closest ? e.target.closest('[data-room]') : null;
       if (roomNode && roomNode.getAttribute('data-room') !== S.room().id) S.setActiveRoom(roomNode.getAttribute('data-room'));
       if (e.target.closest && e.target.closest('[data-roomtag]')) {
         startRoomDrag(e);
+        return;
+      }
+      const nameNode = e.target.closest ? e.target.closest('[data-roomname]') : null;
+      if (nameNode) {
+        // The room's name label: drag to put it where it identifies the room best
+        const room = S.room();
+        const at = room.nameAt || RP.roomgeo.interiorPoint(room);
+        const w0 = worldAt(e);
+        A.select(null);
+        drag = { kind: 'roomname', pointerId: e.pointerId, dx: at.x - w0.x, dy: at.y - w0.y, key: S.newId('name') };
         return;
       }
       const cornerNode = e.target.closest ? e.target.closest('[data-vertex]') : null;
@@ -407,7 +428,18 @@
       if (!drag || e.pointerId !== drag.pointerId) return;
       if (nav.pointerCount() > 1) { drag = null; clearGuides(); return; }
       const w = worldAt(e);
-      if (drag.kind === 'room') doRoomDrag(e);
+      if (drag.kind === 'label') {
+        const h = houseAt(e);
+        const x = h.x + drag.dx;
+        const y = h.y + drag.dy;
+        A.updateLabel(drag.id, e.altKey ? { x: x, y: y } : { x: Math.round(x), y: Math.round(y) }, { coalesce: drag.key });
+      } else if (drag.kind === 'roomname') {
+        const room = S.room();
+        const x = Math.min(room.width, Math.max(0, w.x + drag.dx));
+        const y = Math.min(room.length, Math.max(0, w.y + drag.dy));
+        const at = e.altKey ? { x: x, y: y } : { x: Math.round(x), y: Math.round(y) };
+        S.update(function (p) { S.activeOf(p).nameAt = at; }, { coalesce: drag.key });
+      } else if (drag.kind === 'room') doRoomDrag(e);
       else if (drag.kind === 'resize') doResize(e, w);
       else if (drag.kind === 'vertex') {
         const at = snapCorner(e, drag.index, w);
@@ -437,6 +469,13 @@
     svg.addEventListener('pointerup', end);
     svg.addEventListener('pointercancel', end);
 
+    // Double-click a floating label to edit its text
+    svg.addEventListener('dblclick', function (e) {
+      const node = e.target.closest ? e.target.closest('[data-label]') : null;
+      const label = node ? A.findLabel(node.getAttribute('data-label')) : null;
+      if (label) RP.dialogs.labelDialog(label);
+    });
+
     // ---- Keyboard ----
     window.addEventListener('keydown', function (e) {
       const t = e.target;
@@ -451,8 +490,14 @@
       const ui = S.get().ui;
       const sel = A.selectedPiece();
       const selOp = A.selectedOpening();
+      const selLabel = A.selectedLabel();
 
-      if (ARROWS[e.key] && selOp && ui.tool === 'select') {
+      if (ARROWS[e.key] && selLabel && ui.tool === 'select') {
+        e.preventDefault();
+        const step = e.shiftKey ? 6 : 1;
+        A.updateLabel(selLabel.id, { x: selLabel.x + ARROWS[e.key][0] * step, y: selLabel.y + ARROWS[e.key][1] * step },
+          { coalesce: 'nudge:' + selLabel.id, windowMs: 800 });
+      } else if (ARROWS[e.key] && selOp && ui.tool === 'select') {
         // Arrow keys slide a door or window along its wall
         e.preventDefault();
         const f = RP.openings.wallFrame(S.room(), selOp.wall);
@@ -465,7 +510,7 @@
         A.movePiece(sel.id, sel.x + ARROWS[e.key][0] * step, sel.y + ARROWS[e.key][1] * step,
           { coalesce: 'nudge:' + sel.id, windowMs: 800 });
       } else if (e.key === 'Delete' || e.key === 'Backspace') {
-        if (sel || selOp) {
+        if (sel || selOp || selLabel) {
           e.preventDefault();
           A.deleteSelected();
         } else if (ui.selectedVertex !== null) {

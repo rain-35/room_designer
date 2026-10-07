@@ -346,6 +346,37 @@ button.primary { background: var(--accent); border-color: var(--accent); color: 
   pointer-events: none;
   opacity: 0.8;
 }
+.room-name { cursor: move; }
+.room-name-hit { fill: transparent; }
+.room-name text {
+  fill: var(--text);
+  stroke: var(--floor);
+  paint-order: stroke;
+  stroke-width: 3px;
+  stroke-linejoin: round;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-weight: 700;
+  text-anchor: middle;
+  pointer-events: none;
+}
+.float-label { cursor: move; }
+.float-label-box { fill: transparent; stroke: none; }
+.float-label.selected .float-label-box { stroke: var(--accent); stroke-width: 1.5; stroke-dasharray: 5 3; vector-effect: non-scaling-stroke; fill: var(--panel); fill-opacity: 0.5; }
+.float-label text {
+  fill: var(--text);
+  stroke: var(--floor);
+  paint-order: stroke;
+  stroke-width: 3px;
+  stroke-linejoin: round;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-weight: 600;
+  text-anchor: middle;
+  pointer-events: none;
+}
+.modal-body textarea {
+  width: 220px; max-width: 60vw; min-height: 70px; font: inherit; color: var(--text);
+  background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 6px 8px; resize: vertical;
+}
 .room-tag { cursor: move; }
 .room-tag rect { fill: var(--panel); stroke: var(--border); stroke-width: 1; vector-effect: non-scaling-stroke; opacity: 0.92; }
 .room-tag.active rect { stroke: var(--accent); fill: var(--accent); }
@@ -460,6 +491,7 @@ button[aria-pressed="true"] { background: var(--accent); border-color: var(--acc
 input[type="color"] { width: 40px; height: 32px; padding: 2px; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; }
 .check { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; min-height: 28px; }
 .check input { width: 18px; height: 18px; }
+.check[hidden] { display: none; }
 .btn-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 14px; }
 button.danger, #p-del { color: var(--danger); }
 button:disabled { opacity: 0.45; cursor: not-allowed; }

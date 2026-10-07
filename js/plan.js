@@ -49,20 +49,38 @@
   // opts.scale is 'fit' or a number (k). Returns { w, h, k, fits, label }.
   function layout(project, opts) {
     const paper = paperByKey(opts.paper);
-    const box = RP.rooms.houseBox(project);
-    const bw = box.maxX - box.minX;
-    const bh = box.maxY - box.minY;
+    const houseBox = RP.rooms.houseBox(project);
+
+    // The drawn area at scale k: the rooms plus any floating labels (whose text size is fixed on paper)
+    function boxFor(k) {
+      const box = { minX: houseBox.minX, minY: houseBox.minY, maxX: houseBox.maxX, maxY: houseBox.maxY };
+      (project.labels || []).forEach(function (l) {
+        const e = labelExtent(l, k);
+        box.minX = Math.min(box.minX, l.x - e.w / 2);
+        box.maxX = Math.max(box.maxX, l.x + e.w / 2);
+        box.minY = Math.min(box.minY, l.y - e.h / 2);
+        box.maxY = Math.max(box.maxY, l.y + e.h / 2);
+      });
+      return box;
+    }
+    const sizeOf = function (box) { return { w: box.maxX - box.minX, h: box.maxY - box.minY }; };
 
     function room(w, h) {
       return { aw: w - 2 * MARGIN - 2 * PAD, ah: h - 2 * MARGIN - TITLE_H - 2 * PAD };
     }
     function attempt(w, h) {
       const a = room(w, h);
-      const fitsAt = function (k) { return bw * k <= a.aw + 1e-9 && bh * k <= a.ah + 1e-9; };
+      const fitsAt = function (k) { const s = sizeOf(boxFor(k)); return s.w * k <= a.aw + 1e-9 && s.h * k <= a.ah + 1e-9; };
       let k;
       let label;
       if (opts.scale === 'fit') {
-        const exact = Math.min(a.aw / bw, a.ah / bh);
+        // Find the largest scale that fits (labels grow with the scale, so settle it in a few passes)
+        let exact = Math.min(a.aw / sizeOf(houseBox).w, a.ah / sizeOf(houseBox).h);
+        for (let i = 0; i < 6; i++) {
+          const s = sizeOf(boxFor(exact));
+          exact = Math.min(a.aw / s.w, a.ah / s.h) * (i === 5 ? 1 : 0.999);
+        }
+        exact = Math.min(exact, 1 / 12);
         const std = scalesFor(project).filter(function (s) { return fitsAt(s.k); })[0];
         if (std) { k = std.k; label = std.label; } else { k = exact; label = exactLabel(project, k); }
       } else {
@@ -70,11 +88,12 @@
         const std = scalesFor(project).filter(function (s) { return Math.abs(s.k - k) < 1e-9; })[0];
         label = std ? std.label : exactLabel(project, k);
       }
-      return { w: w, h: h, k: k, label: label, fits: fitsAt(k), aw: a.aw, ah: a.ah };
+      return { w: w, h: h, k: k, label: label, fits: fitsAt(k), aw: a.aw, ah: a.ah, box: boxFor(k) };
     }
     const portrait = attempt(paper.w, paper.h);
     const landscape = attempt(paper.h, paper.w);
-    const preferLandscape = bw >= bh;
+    const rooms = sizeOf(houseBox);
+    const preferLandscape = rooms.w >= rooms.h;
     let a = preferLandscape ? landscape : portrait;
     const b = preferLandscape ? portrait : landscape;
     if (opts.scale === 'fit') {
@@ -82,10 +101,20 @@
     } else if (!a.fits && b.fits) {
       a = b;
     }
-    a.box = box;
-    a.bw = bw;
-    a.bh = bh;
+    const s = sizeOf(a.box);
+    a.bw = s.w;
+    a.bh = s.h;
     return a;
+  }
+
+  const LABEL_PT = { small: 8, medium: 11, large: 16 }; // floating label text size on paper
+
+  // Size of a floating label in room inches at scale k
+  function labelExtent(l, k) {
+    const pts = LABEL_PT[l.size] || LABEL_PT.medium;
+    const lines = String(l.text).split('\n');
+    const widest = lines.reduce(function (m, s) { return Math.max(m, s.length); }, 1);
+    return { w: (widest * pts * 0.58 + 6) / 72 / k, h: (lines.length * pts * 1.25 + 4) / 72 / k };
   }
 
   // ---- drawing ----
@@ -194,7 +223,7 @@
 
     // Room name and area
     if (o.rooms) {
-      const c = R.interiorPoint(room);
+      const c = room.nameAt || R.interiorPoint(room);
       const halo = 'paint-order:stroke;stroke:#fff;stroke-width:' + f(pt(3)) + 'px;stroke-linejoin:round';
       out += '<text x="' + f(c.x) + '" y="' + f(c.y) + '" text-anchor="middle" font-family="' + FONT + '" font-size="' + f(pt(11)) + '" font-weight="bold" fill="#333" style="' + halo + '">' + esc(room.name) + '</text>';
       out += '<text x="' + f(c.x) + '" y="' + f(c.y + pt(12)) + '" text-anchor="middle" font-family="' + FONT + '" font-size="' + f(pt(8)) + '" fill="#555" style="' + halo + '">' +
@@ -222,6 +251,19 @@
     s += '<rect x="' + MARGIN + '" y="' + MARGIN + '" width="' + f(w - 2 * MARGIN) + '" height="' + f(h - 2 * MARGIN) + '" fill="none" stroke="#999" stroke-width="0.008"/>';
     s += '<g transform="translate(' + f(tx) + ' ' + f(ty) + ') scale(' + k + ')">';
     project.rooms.forEach(function (room) { s += buildRoom(project, room, opts, k); });
+    // Floating labels
+    (project.labels || []).forEach(function (l) {
+      const pts = LABEL_PT[l.size] || LABEL_PT.medium;
+      const fs = pts / 72 / k;
+      const lines = String(l.text).split('\n');
+      const top = l.y - (lines.length - 1) * fs * 0.625;
+      s += '<text x="' + f(l.x) + '" y="' + f(top) + '" text-anchor="middle" font-family="' + FONT + '" font-size="' + f(fs) + '" font-weight="bold" fill="#222" ' +
+        'style="paint-order:stroke;stroke:#fff;stroke-width:' + f(3 / 72 / k) + 'px;stroke-linejoin:round" dominant-baseline="central">';
+      lines.forEach(function (line, i) {
+        s += '<tspan x="' + f(l.x) + '"' + (i ? ' dy="' + f(fs * 1.25) + '"' : '') + '>' + esc(line || ' ') + '</tspan>';
+      });
+      s += '</text>';
+    });
     s += '</g>';
 
     // Title block
