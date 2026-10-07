@@ -63,6 +63,7 @@
     rv.gridG = make('g', { 'clip-path': 'url(#' + clipId + ')' }, rv.g);
     rv.gridMinor = make('path', { class: 'grid-minor' }, rv.gridG);
     rv.gridMajor = make('path', { class: 'grid-major' }, rv.gridG);
+    rv.wallHitG = make('g', { class: 'wall-hits' }, rv.g); // under the furniture, so pieces beside a wall stay grabbable
     rv.furnG = make('g', { class: 'furniture' }, rv.g);
     rv.handlesG = make('g', { class: 'handles' }, rv.g);
     rv.wall = make('path', { class: 'wall' }, rv.g);
@@ -126,9 +127,16 @@
   // Corner handles for a polygon room (drag to move, click a wall's + to add a corner).
   function drawVertexHandles(rv, room, state, active) {
     clear(rv.vertexG);
+    clear(rv.wallHitG);
     const ui = state.ui;
     if (!active || !RP.roomgeo.isPolygon(room) || ui.tool !== 'select' || ui.selectedId || ui.selectedOpeningId) return;
     const px = 1 / state.view.ppi;
+    // Fat invisible lines along each wall: drag one to move the whole wall
+    RP.roomgeo.edges(room).forEach(function (e) {
+      const dir = Math.abs(e.n.x) > 0.999 ? 'ew-resize' : Math.abs(e.n.y) > 0.999 ? 'ns-resize' : 'move';
+      make('line', { class: 'wall-hit', 'data-wall': e.index, x1: e.a.x, y1: e.a.y, x2: e.b.x, y2: e.b.y,
+        'stroke-width': 14 * px, style: 'cursor:' + dir }, rv.wallHitG);
+    });
     RP.roomgeo.edges(room).forEach(function (e) {
       if (e.length * state.view.ppi < 70) return;
       const mx = (e.a.x + e.b.x) / 2;

@@ -111,9 +111,19 @@
         <ul>
           <li>A new room is a rectangle. Type its Width and Length in the top bar or the right panel.</li>
           <li><b>L-shape&hellip;</b> (right panel) asks for the overall size and the notch to cut from one corner. Doors and windows on that room are removed because the walls change; add them back afterward.</li>
-          <li><b>Edit corners</b> turns the room into a shape with movable corners. Drag a corner, click the <b>+</b> on a wall to add a corner, click a corner and press <kbd>Delete</kbd> (or <b>Remove corner</b>) to remove it. Type exact wall lengths in the <b>Walls</b> list.</li>
+          <li><b>Edit corners</b> turns the room into a shape with movable walls and corners (see below). Type exact wall lengths in the <b>Walls</b> list.</li>
           <li><b>Make rectangle</b> turns it back into a plain rectangle of the same overall size.</li>
           <li>Walls cannot cross each other and cannot be shorter than 6 inches.</li>
+        </ul>
+        <h3>Moving walls and corners (odd shapes like an L or T)</h3>
+        <ul>
+          <li><b>Drag a wall</b> to push the whole wall straight in or out. The walls beside it get longer or shorter. Doors and windows on it move with it. The cursor changes to a resize arrow when you are over a wall.</li>
+          <li><b>Drag a corner</b> to move just that corner.</li>
+          <li>Both snap to grid lines and to the lines of other corners, in whole inches. Hold <kbd>Alt</kbd> for free movement.</li>
+          <li><b>Keep corners square (90&deg;)</b> is a checkbox in the room's properties, on by default for L-shapes and new "Edit corners" rooms. While it is on, every wall stays horizontal or vertical, so all corners are right angles, and you can still shape the room into an L, T, U and so on. Dragging a corner slides its two neighboring walls along with it.</li>
+          <li>With square corners on, clicking a wall's <b>+</b> adds a small step (24" wide, 12" deep). Keep dragging to set its depth in or out. Use this to build a T, an alcove or a notch. Typing a wall length moves the next wall.</li>
+          <li>With square corners on you cannot remove a single corner, since that would leave a slanted wall. Untick the box, remove the corner, and tick it again. The program straightens the walls when you tick it, or tells you if they are too far off.</li>
+          <li>With the box unticked you can drag corners anywhere, click <b>+</b> to add a corner, and select a corner and press <kbd>Delete</kbd> to remove it.</li>
         </ul>
         <h3>Several rooms in one layout</h3>
         <ul>

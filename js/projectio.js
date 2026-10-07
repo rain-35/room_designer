@@ -96,6 +96,8 @@
       }
       r.furniture = (Array.isArray(room.furniture) ? room.furniture : []).map(function (f) { return cleanPiece(f, seen); });
       RP.roomgeo.normalize(r); // polygon rooms: box starts at (0, 0) and width/length match it
+      // "Keep corners square" only makes sense for a polygon whose walls really are horizontal and vertical
+      if (r.squareCorners !== true || !polygon || !RP.roomedit.isSquare(r.points)) delete r.squareCorners;
       const seenOpenings = {};
       r.openings = (Array.isArray(room.openings) ? room.openings : []).map(function (o) { return cleanOpening(o, r, seenOpenings); });
       return r;

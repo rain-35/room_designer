@@ -368,6 +368,8 @@ button.primary { background: var(--accent); border-color: var(--accent); color: 
 .vertex, .vertex-add { cursor: pointer; }
 .vertex { cursor: move; }
 .vertex-hit { fill: transparent; }
+.wall-hit { stroke: transparent; pointer-events: stroke; stroke-linecap: butt; }
+.wall-hit:hover { stroke: var(--accent); stroke-opacity: 0.25; }
 .vertex-dot { fill: var(--panel); stroke: var(--accent); stroke-width: 2; vector-effect: non-scaling-stroke; }
 .vertex.selected .vertex-dot { fill: var(--accent); }
 .vertex-add-dot { fill: var(--panel); stroke: var(--accent); stroke-width: 1.5; vector-effect: non-scaling-stroke; opacity: 0.85; }

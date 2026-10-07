@@ -147,6 +147,8 @@
         let best = null;
         room.points.forEach(function (p, i) {
           if (i === index) return;
+          // Square rooms: the two corners beside this one move with it, so they are not targets
+          if (room.squareCorners && (i === (index + 1) % room.points.length || i === (index + room.points.length - 1) % room.points.length)) return;
           const d = Math.abs(p[key] - value);
           if (d <= tol && (!best || d < best.d)) best = { d: d, v: p[key] };
         });
@@ -157,6 +159,7 @@
       };
       const out = { x: axis(w.x, 'x'), y: axis(w.y, 'y') };
       if (hit) return out;
+      if (room.squareCorners) return whole(out); // neighbors move with it, so wall lengths follow the corner
 
       // Not on a grid line or in line with another corner: make a wall a whole number of grid squares long.
       const n = room.points.length;
@@ -176,6 +179,47 @@
     function startCornerDrag(e, index, alreadyMoved) {
       S.setUi({ selectedVertex: index });
       drag = { kind: 'vertex', pointerId: e.pointerId, index: index, moved: !!alreadyMoved, key: S.newId('corner') };
+    }
+
+    // ---- Moving a whole wall (polygon rooms): it slides straight in or out ----
+    function startWallDrag(e, index, alreadyMoved) {
+      const room = S.room();
+      const pts = room.points.map(function (p) { return { x: p.x, y: p.y }; });
+      const n = RP.roomedit.wallNormal(pts, index);
+      const w = worldAt(e);
+      drag = { kind: 'wall', pointerId: e.pointerId, index: index, pts: pts, n: n, start: w, moved: !!alreadyMoved, key: S.newId('wall') };
+    }
+
+    // How far to move the wall (inches, positive = into the room): snapped to grid lines and other corners
+    // when the wall runs straight, and in whole inches unless Alt is held.
+    function snapWallOffset(e, d) {
+      if (e.altKey) return d;
+      const n = drag.n;
+      const axis = Math.abs(n.x) > 0.999 ? 'x' : Math.abs(n.y) > 0.999 ? 'y' : null;
+      if (axis && snapping(e)) {
+        const sign = axis === 'x' ? Math.sign(n.x) : Math.sign(n.y);
+        const base = drag.pts[drag.index][axis];
+        const pos = base + sign * d;
+        const grid = S.get().ui.gridSize;
+        const tol = snapThreshold();
+        const n2 = drag.pts.length;
+        const own = [drag.index, (drag.index + 1) % n2];
+        let best = null;
+        drag.pts.forEach(function (p, i) {
+          if (own.indexOf(i) !== -1) return;
+          const dist = Math.abs(p[axis] - pos);
+          if (dist <= tol && (!best || dist < best.d)) best = { d: dist, v: p[axis] };
+        });
+        const g = Math.round(pos / grid) * grid;
+        if (!best && Math.abs(g - pos) <= tol) best = { d: 0, v: g };
+        if (best) return (best.v - base) * sign;
+      }
+      return Math.round(d);
+    }
+
+    function doWallDrag(e, w) {
+      const d = (w.x - drag.start.x) * drag.n.x + (w.y - drag.start.y) * drag.n.y;
+      if (RP.roomedit.moveWall(drag.index, drag.pts, snapWallOffset(e, d), { coalesce: drag.key })) drag.moved = true;
     }
 
     // ---- Moving a whole room (drag its name tag) ----
@@ -239,9 +283,21 @@
       }
       const addNode = e.target.closest ? e.target.closest('[data-addvertex]') : null;
       if (addNode) {
-        // Clicking a wall's + adds a corner there; keep dragging to place it.
-        const at = RP.roomedit.insertVertex(Number(addNode.getAttribute('data-addvertex')));
+        // Clicking a wall's + adds a corner there (square rooms: a small step); keep dragging to place it.
+        const wallIndex = Number(addNode.getAttribute('data-addvertex'));
+        if (S.room().squareCorners) {
+          const stepWall = RP.roomedit.insertStep(wallIndex);
+          if (stepWall < 0) RP.fields.message('That wall is too short to add a step.');
+          else startWallDrag(e, stepWall, true);
+          return;
+        }
+        const at = RP.roomedit.insertVertex(wallIndex);
         startCornerDrag(e, at, true);
+        return;
+      }
+      const wallNode = e.target.closest ? e.target.closest('[data-wall]') : null;
+      if (wallNode) {
+        startWallDrag(e, Number(wallNode.getAttribute('data-wall')), false);
         return;
       }
       const opNode = e.target.closest ? e.target.closest('[data-opening]') : null;
@@ -289,7 +345,8 @@
       else if (drag.kind === 'vertex') {
         const at = snapCorner(e, drag.index, w);
         if (RP.roomedit.moveVertex(drag.index, at.x, at.y, { coalesce: drag.key })) drag.moved = true;
-      } else if (drag.kind === 'opening') doOpeningDrag(e, w);
+      } else if (drag.kind === 'wall') doWallDrag(e, w);
+      else if (drag.kind === 'opening') doOpeningDrag(e, w);
       else doMove(e, w);
     });
 
@@ -301,7 +358,7 @@
       }
       if (drag && e.pointerId === drag.pointerId) {
         // A dragged corner: move the room's box back to (0, 0), as part of the same undo step.
-        if (drag.kind === 'vertex' && drag.moved) RP.roomedit.finishVertexMove({ coalesce: drag.key });
+        if ((drag.kind === 'vertex' || drag.kind === 'wall') && drag.moved) RP.roomedit.finishVertexMove({ coalesce: drag.key });
         if (drag.kind === 'room' && drag.moved) RP.rooms.finishMove({ coalesce: drag.key });
         drag = null;
         clearGuides();
@@ -343,7 +400,10 @@
           A.deleteSelected();
         } else if (ui.selectedVertex !== null) {
           e.preventDefault();
-          if (!RP.roomedit.deleteVertex(ui.selectedVertex)) RP.fields.message('A room needs at least 3 corners, and its walls cannot cross.');
+          if (!RP.roomedit.deleteVertex(ui.selectedVertex)) {
+            RP.fields.message(S.room().squareCorners ? 'Turn off "Keep corners square" to remove a corner.'
+              : 'A room needs at least 3 corners, and its walls cannot cross.');
+          }
         }
       } else if (e.key === 'Escape') {
         if (ui.tool === 'measure') {

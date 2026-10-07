@@ -149,7 +149,8 @@
       <label class="row"><span>Length</span><input id="r-length" type="text" autocomplete="off" autocapitalize="off" spellcheck="false"></label>
       <div class="row"><span>Area</span><span id="r-area"></span></div>
       <div class="row"><span>Shape</span><span id="r-shape"></span></div>
-      <p class="hint" id="r-poly-hint" hidden>Width and length are the overall size. Drag a corner on the plan, click a wall's + to add a corner, or type wall lengths below.</p>
+      <p class="hint" id="r-poly-hint" hidden>Width and length are the overall size. Drag a wall to move it, drag a corner to move it, click a wall's + to add a corner (or a step, if corners are kept square), or type wall lengths below.</p>
+      <label class="check" id="r-square-row" hidden title="Every wall stays horizontal or vertical, so all corners are 90 degrees"><input id="r-square" type="checkbox"> Keep corners square (90&deg;)</label>
       <div class="btn-grid shape-btns">
         <button type="button" id="r-make-l">L-shape&hellip;</button>
         <button type="button" id="r-make-poly">Edit corners</button>
