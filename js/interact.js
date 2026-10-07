@@ -134,6 +134,53 @@
       A.updateOpening(drag.id, { wall: hit.wall, offset: offset }, { coalesce: drag.key });
     }
 
+    // ---- Divider lines ----
+    // Where a divider end goes (room inches). With snap on it jumps to a room corner, then a point on a wall (so the
+    // divider meets the wall), then lines up with its other end and the grid. Whole inches unless Alt is held;
+    // Shift keeps the line horizontal or vertical.
+    function snapDividerPoint(e, pt, other) {
+      let p = { x: pt.x, y: pt.y };
+      if (!e.altKey) {
+        let hit = null;
+        if (snapping(e)) {
+          const room = S.room();
+          const tol = snapThreshold();
+          const grid = S.get().ui.gridSize;
+          RP.roomgeo.outline(room).forEach(function (q) {
+            const d = Math.hypot(q.x - p.x, q.y - p.y);
+            if (d <= tol && (!hit || d < hit.d)) hit = { d: d, x: q.x, y: q.y };
+          });
+          if (!hit) {
+            RP.roomgeo.edges(room).forEach(function (ed) {
+              const t = Math.max(0, Math.min(ed.length, (p.x - ed.a.x) * ed.dir.x + (p.y - ed.a.y) * ed.dir.y));
+              let cx = ed.a.x + ed.dir.x * t;
+              let cy = ed.a.y + ed.dir.y * t;
+              // On a straight (horizontal or vertical) wall, land on a whole inch along it
+              if (Math.abs(ed.dir.y) < 1e-6 && !e.altKey) cx = Math.round(cx);
+              if (Math.abs(ed.dir.x) < 1e-6 && !e.altKey) cy = Math.round(cy);
+              const d = Math.hypot(cx - p.x, cy - p.y);
+              if (d <= tol && (!hit || d < hit.d)) hit = { d: d, x: cx, y: cy };
+            });
+          }
+          if (hit) {
+            p = { x: hit.x, y: hit.y };
+          } else {
+            const axis = function (v, ref) {
+              if (other && Math.abs(v - other[ref]) <= tol) return other[ref];
+              const g = Math.round(v / grid) * grid;
+              return Math.abs(g - v) <= tol ? g : v;
+            };
+            p = { x: axis(p.x, 'x'), y: axis(p.y, 'y') };
+          }
+        }
+        if (!hit) p = { x: Math.round(p.x), y: Math.round(p.y) };
+      }
+      if (e.shiftKey && other) {
+        if (Math.abs(p.x - other.x) >= Math.abs(p.y - other.y)) p.y = other.y; else p.x = other.x;
+      }
+      return p;
+    }
+
     // ---- Room corners (polygon rooms) ----
     // Snap a dragged corner to the grid and to the x / y of the room's other corners.
     // Where a dragged corner goes. In a square room the walls that touch it are made a whole number of
@@ -347,6 +394,17 @@
         }
         return;
       }
+      // Divider tool: press where the line starts and drag to where it ends
+      if (S.get().ui.tool === 'divider') {
+        const h0 = houseAt(e);
+        const target = RP.rooms.roomAt(S.get().project, h0);
+        if (target) S.setActiveRoom(target.id);
+        const room0 = S.room();
+        const start = snapDividerPoint(e, { x: h0.x - room0.x, y: h0.y - room0.y }, null);
+        drag = { kind: 'divdraw', pointerId: e.pointerId, a: start, roomId: room0.id };
+        S.setUi({ dividerDraft: { a: { x: start.x + room0.x, y: start.y + room0.y }, b: { x: start.x + room0.x, y: start.y + room0.y } } });
+        return;
+      }
       // Touching something in another room makes that room the one being edited.
       const roomNode = e.target.closest ? e.target.closest('[data-room]') : null;
       if (roomNode && roomNode.getAttribute('data-room') !== S.room().id) S.setActiveRoom(roomNode.getAttribute('data-room'));
@@ -397,6 +455,21 @@
         }
         return;
       }
+      const dHandle = e.target.closest ? e.target.closest('[data-dhandle]') : null;
+      if (dHandle && A.selectedDivider()) {
+        drag = { kind: 'dhandle', pointerId: e.pointerId, id: A.selectedDivider().id, end: dHandle.getAttribute('data-dhandle'), key: S.newId('dend') };
+        return;
+      }
+      const dNode = e.target.closest ? e.target.closest('[data-divider]') : null;
+      if (dNode) {
+        const div = A.findDivider(dNode.getAttribute('data-divider'));
+        if (div) {
+          A.selectDivider(div.id);
+          const w1 = worldAt(e);
+          drag = { kind: 'dmove', pointerId: e.pointerId, id: div.id, start: w1, a0: { x: div.a.x, y: div.a.y }, b0: { x: div.b.x, y: div.b.y }, key: S.newId('dmove') };
+        }
+        return;
+      }
       const handle = e.target.closest ? e.target.closest('[data-handle]') : null;
       if (handle) {
         const sel = A.selectedPiece();
@@ -428,7 +501,21 @@
       if (!drag || e.pointerId !== drag.pointerId) return;
       if (nav.pointerCount() > 1) { drag = null; clearGuides(); return; }
       const w = worldAt(e);
-      if (drag.kind === 'label') {
+      if (drag.kind === 'divdraw') {
+        const room = S.room();
+        const b = snapDividerPoint(e, w, drag.a);
+        S.setUi({ dividerDraft: { a: { x: drag.a.x + room.x, y: drag.a.y + room.y }, b: { x: b.x + room.x, y: b.y + room.y } } });
+        drag.b = b;
+      } else if (drag.kind === 'dhandle') {
+        const div = A.findDivider(drag.id);
+        if (div) A.updateDivider(drag.id, { [drag.end]: snapDividerPoint(e, w, div[drag.end === 'a' ? 'b' : 'a']) }, { coalesce: drag.key });
+      } else if (drag.kind === 'dmove') {
+        const dx = e.altKey ? w.x - drag.start.x : Math.round(w.x - drag.start.x);
+        const dy = e.altKey ? w.y - drag.start.y : Math.round(w.y - drag.start.y);
+        A.updateDivider(drag.id, {
+          a: { x: drag.a0.x + dx, y: drag.a0.y + dy }, b: { x: drag.b0.x + dx, y: drag.b0.y + dy },
+        }, { coalesce: drag.key });
+      } else if (drag.kind === 'label') {
         const h = houseAt(e);
         const x = h.x + drag.dx;
         const y = h.y + drag.dy;
@@ -457,6 +544,15 @@
         const moved = Math.hypot(e.clientX - tap.x, e.clientY - tap.y);
         tap = null;
         if (e.type === 'pointerup' && moved <= TAP_SLOP_PX) placeMeasurePoint(e);
+      }
+      if (drag && e.pointerId === drag.pointerId && drag.kind === 'divdraw') {
+        // Finished drawing: keep the line if it is long enough to see
+        const a = drag.a;
+        const b = drag.b;
+        drag = null;
+        if (e.type === 'pointerup' && b && Math.hypot(b.x - a.x, b.y - a.y) >= 6) A.addDivider(a, b);
+        else S.setUi({ dividerDraft: null });
+        return;
       }
       if (drag && e.pointerId === drag.pointerId) {
         // A dragged corner: move the room's box back to (0, 0), as part of the same undo step.
@@ -491,8 +587,16 @@
       const sel = A.selectedPiece();
       const selOp = A.selectedOpening();
       const selLabel = A.selectedLabel();
+      const selDiv = A.selectedDivider();
 
-      if (ARROWS[e.key] && selLabel && ui.tool === 'select') {
+      if (ARROWS[e.key] && selDiv && ui.tool === 'select') {
+        e.preventDefault();
+        const step = e.shiftKey ? 6 : 1;
+        const dx = ARROWS[e.key][0] * step;
+        const dy = ARROWS[e.key][1] * step;
+        A.updateDivider(selDiv.id, { a: { x: selDiv.a.x + dx, y: selDiv.a.y + dy }, b: { x: selDiv.b.x + dx, y: selDiv.b.y + dy } },
+          { coalesce: 'nudge:' + selDiv.id, windowMs: 800 });
+      } else if (ARROWS[e.key] && selLabel && ui.tool === 'select') {
         e.preventDefault();
         const step = e.shiftKey ? 6 : 1;
         A.updateLabel(selLabel.id, { x: selLabel.x + ARROWS[e.key][0] * step, y: selLabel.y + ARROWS[e.key][1] * step },
@@ -510,7 +614,7 @@
         A.movePiece(sel.id, sel.x + ARROWS[e.key][0] * step, sel.y + ARROWS[e.key][1] * step,
           { coalesce: 'nudge:' + sel.id, windowMs: 800 });
       } else if (e.key === 'Delete' || e.key === 'Backspace') {
-        if (sel || selOp || selLabel) {
+        if (sel || selOp || selLabel || selDiv) {
           e.preventDefault();
           A.deleteSelected();
         } else if (ui.selectedVertex !== null) {
@@ -521,7 +625,10 @@
           }
         }
       } else if (e.key === 'Escape') {
-        if (ui.tool === 'measure') {
+        if (ui.tool === 'divider') {
+          drag = null;
+          S.setUi({ tool: 'select', dividerDraft: null });
+        } else if (ui.tool === 'measure') {
           if (ui.measure) S.setUi({ measure: null });
           else S.setUi({ tool: 'select' });
         } else {

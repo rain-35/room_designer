@@ -105,6 +105,17 @@
       }
       r.furniture = (Array.isArray(room.furniture) ? room.furniture : []).map(function (f) { return cleanPiece(f, seen); });
       RP.roomgeo.normalize(r); // polygon rooms: box starts at (0, 0) and width/length match it
+      // Divider lines: keep only valid ones; no key at all when there are none
+      const seenDividers = {};
+      const dividers = (Array.isArray(r.dividers) ? r.dividers : []).filter(function (d) {
+        return d && d.a && d.b && isNum(d.a.x) && isNum(d.a.y) && isNum(d.b.x) && isNum(d.b.y) &&
+          Math.hypot(d.b.x - d.a.x, d.b.y - d.a.y) > 0.5;
+      }).map(function (d) {
+        const id = typeof d.id === 'string' && d.id && !seenDividers[d.id] ? d.id : S.newId('d');
+        seenDividers[id] = true;
+        return { id: id, a: { x: d.a.x, y: d.a.y }, b: { x: d.b.x, y: d.b.y }, style: d.style === 'dashed' ? 'dashed' : 'solid' };
+      });
+      if (dividers.length) r.dividers = dividers; else delete r.dividers;
       // The name label shown inside the room, and where the user dragged it
       if (r.showName !== true) delete r.showName;
       if (!r.nameAt || !isNum(r.nameAt.x) || !isNum(r.nameAt.y)) delete r.nameAt;

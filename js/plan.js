@@ -136,6 +136,12 @@
 
     out += '<polygon points="' + outline.map(function (p) { return f(p.x) + ',' + f(p.y); }).join(' ') + '" fill="#fff"/>';
 
+    // Divider lines, under the furniture
+    (room.dividers || []).forEach(function (d) {
+      out += '<line x1="' + f(d.a.x) + '" y1="' + f(d.a.y) + '" x2="' + f(d.b.x) + '" y2="' + f(d.b.y) + '" stroke="#555" stroke-width="' + f(pt(1.3)) +
+        '" stroke-linecap="round"' + (d.style === 'dashed' ? ' stroke-dasharray="' + f(pt(5)) + ' ' + f(pt(3)) + '"' : '') + '/>';
+    });
+
     // Furniture: rugs first
     const list = room.furniture.filter(function (p) { return p.layer === 'floor'; })
       .concat(room.furniture.filter(function (p) { return p.layer !== 'floor'; }));

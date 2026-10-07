@@ -359,6 +359,13 @@ button.primary { background: var(--accent); border-color: var(--accent); color: 
   text-anchor: middle;
   pointer-events: none;
 }
+.divider-hit { stroke: transparent; stroke-width: 14px; vector-effect: non-scaling-stroke; pointer-events: stroke; cursor: move; }
+.divider-line { stroke: var(--wall); stroke-width: 2px; vector-effect: non-scaling-stroke; stroke-linecap: round; opacity: 0.75; pointer-events: none; }
+.divider-line.dashed { stroke-dasharray: 8 6; }
+.divider-line.draft { stroke: var(--accent); opacity: 1; }
+.divider.selected .divider-line { stroke: var(--accent); opacity: 1; }
+.divider-handle { cursor: move; }
+svg.divider-tool { cursor: crosshair; }
 .float-label { cursor: move; }
 .float-label-box { fill: transparent; stroke: none; }
 .float-label.selected .float-label-box { stroke: var(--accent); stroke-width: 1.5; stroke-dasharray: 5 3; vector-effect: non-scaling-stroke; fill: var(--panel); fill-opacity: 0.5; }

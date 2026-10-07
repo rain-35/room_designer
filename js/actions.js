@@ -46,7 +46,7 @@
       ignoreClearance: false,
     };
     S.update(function (p) { S.activeOf(p).furniture.push(piece); });
-    S.setUi({ selectedId: piece.id, selectedOpeningId: null, selectedLabelId: null });
+    S.setUi({ selectedId: piece.id, selectedOpeningId: null, selectedLabelId: null, selectedDividerId: null });
     return piece;
   }
 
@@ -76,7 +76,7 @@
     };
     RP.openings.clampOpening(room, op);
     S.update(function (p) { S.activeOf(p).openings.push(op); });
-    S.setUi({ selectedOpeningId: op.id, selectedId: null, selectedLabelId: null, tool: 'select', measure: null });
+    S.setUi({ selectedOpeningId: op.id, selectedId: null, selectedLabelId: null, selectedDividerId: null, tool: 'select', measure: null });
     return op;
   }
 
@@ -92,8 +92,8 @@
 
   function selectOpening(id) {
     const ui = S.get().ui;
-    if (ui.selectedOpeningId !== id || ui.selectedId !== null || ui.selectedVertex !== null || ui.selectedLabelId !== null) {
-      S.setUi({ selectedOpeningId: id, selectedId: null, selectedVertex: null, selectedLabelId: null });
+    if (ui.selectedOpeningId !== id || ui.selectedId !== null || ui.selectedVertex !== null || ui.selectedLabelId !== null || ui.selectedDividerId !== null) {
+      S.setUi({ selectedOpeningId: id, selectedId: null, selectedVertex: null, selectedLabelId: null, selectedDividerId: null });
     }
   }
 
@@ -150,7 +150,7 @@
   function addLabel(text, size, x, y) {
     const label = { id: S.newId('t'), text: text, x: x, y: y, size: LABEL_SIZES.indexOf(size) === -1 ? 'medium' : size };
     S.update(function (p) { (p.labels = p.labels || []).push(label); });
-    S.setUi({ selectedLabelId: label.id, selectedId: null, selectedOpeningId: null, selectedVertex: null, tool: 'select', measure: null });
+    S.setUi({ selectedLabelId: label.id, selectedId: null, selectedOpeningId: null, selectedVertex: null, selectedDividerId: null, tool: 'select', measure: null });
     return label;
   }
 
@@ -163,12 +163,56 @@
 
   function selectLabel(id) {
     const ui = S.get().ui;
-    if (ui.selectedLabelId !== id || ui.selectedId !== null || ui.selectedOpeningId !== null || ui.selectedVertex !== null) {
-      S.setUi({ selectedLabelId: id, selectedId: null, selectedOpeningId: null, selectedVertex: null });
+    if (ui.selectedLabelId !== id || ui.selectedId !== null || ui.selectedOpeningId !== null || ui.selectedVertex !== null || ui.selectedDividerId !== null) {
+      S.setUi({ selectedLabelId: id, selectedId: null, selectedOpeningId: null, selectedVertex: null, selectedDividerId: null });
+    }
+  }
+
+  // ---- Dividers: lines inside a room that split it into areas (no effect on the walls or the checks) ----
+  function findDivider(id) {
+    const list = currentRoom().dividers || [];
+    for (let i = 0; i < list.length; i++) if (list[i].id === id) return list[i];
+    return null;
+  }
+
+  function selectedDivider() {
+    const id = S.get().ui.selectedDividerId;
+    return id ? findDivider(id) : null;
+  }
+
+  // a and b are points in the room's own inches.
+  function addDivider(a, b) {
+    const d = { id: S.newId('d'), a: { x: a.x, y: a.y }, b: { x: b.x, y: b.y }, style: 'solid' };
+    S.update(function (p) { const r = S.activeOf(p); (r.dividers = r.dividers || []).push(d); });
+    S.setUi({ selectedDividerId: d.id, selectedId: null, selectedOpeningId: null, selectedLabelId: null, selectedVertex: null, tool: 'select', dividerDraft: null });
+    return d;
+  }
+
+  function updateDivider(id, patch, opts) {
+    S.update(function (p) {
+      const d = (S.activeOf(p).dividers || []).find(function (q) { return q.id === id; });
+      if (d) Object.assign(d, patch);
+    }, opts);
+  }
+
+  function selectDivider(id) {
+    const ui = S.get().ui;
+    if (ui.selectedDividerId !== id || ui.selectedId !== null || ui.selectedOpeningId !== null || ui.selectedLabelId !== null || ui.selectedVertex !== null) {
+      S.setUi({ selectedDividerId: id, selectedId: null, selectedOpeningId: null, selectedLabelId: null, selectedVertex: null });
     }
   }
 
   function deleteSelected() {
+    const divider = selectedDivider();
+    if (divider) {
+      S.update(function (p) {
+        const list = S.activeOf(p).dividers;
+        list.splice(list.findIndex(function (d) { return d.id === divider.id; }), 1);
+        if (!list.length) delete S.activeOf(p).dividers;
+      });
+      S.setUi({ selectedDividerId: null });
+      return;
+    }
     const label = selectedLabel();
     if (label) {
       S.update(function (p) { p.labels.splice(p.labels.findIndex(function (l) { return l.id === label.id; }), 1); });
@@ -195,8 +239,8 @@
 
   function select(id) {
     const ui = S.get().ui;
-    if (ui.selectedId !== id || ui.selectedOpeningId !== null || ui.selectedVertex !== null || ui.selectedLabelId !== null) {
-      S.setUi({ selectedId: id, selectedOpeningId: null, selectedVertex: null, selectedLabelId: null });
+    if (ui.selectedId !== id || ui.selectedOpeningId !== null || ui.selectedVertex !== null || ui.selectedLabelId !== null || ui.selectedDividerId !== null) {
+      S.setUi({ selectedId: id, selectedOpeningId: null, selectedVertex: null, selectedLabelId: null, selectedDividerId: null });
     }
   }
 
@@ -220,5 +264,10 @@
     addLabel: addLabel,
     updateLabel: updateLabel,
     selectLabel: selectLabel,
+    findDivider: findDivider,
+    selectedDivider: selectedDivider,
+    addDivider: addDivider,
+    updateDivider: updateDivider,
+    selectDivider: selectDivider,
   };
 })(window.RP = window.RP || {});

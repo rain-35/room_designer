@@ -48,10 +48,12 @@
       selectedOpeningId: null,
       selectedVertex: null,   // a room corner (polygon rooms)
       selectedLabelId: null,  // a floating label
+      selectedDividerId: null, // a divider line in the room being edited
+      dividerDraft: null,     // { a, b } in house inches while a divider is being drawn
       hoverEdge: null,        // a wall highlighted from the walls list
       snap: true,
       warnings: true,
-      tool: 'select',   // 'select' or 'measure'
+      tool: 'select',   // 'select', 'measure' or 'divider'
       guides: [],       // snap guide lines shown while dragging
       measure: null,    // { a, b, hover } in room inches
     },
@@ -84,6 +86,9 @@
     const room = activeOf(state.project);
     state.ui.activeRoomId = room.id;
     if (id && !room.furniture.some(function (f) { return f.id === id; })) state.ui.selectedId = null;
+    const did = state.ui.selectedDividerId;
+    if (did && !(room.dividers || []).some(function (d) { return d.id === did; })) state.ui.selectedDividerId = null;
+    state.ui.dividerDraft = null;
     const oid = state.ui.selectedOpeningId;
     if (oid && !room.openings.some(function (o) { return o.id === oid; })) state.ui.selectedOpeningId = null;
     const lid = state.ui.selectedLabelId;
@@ -138,7 +143,7 @@
       history.undo.length = 0;
       history.redo.length = 0;
       lastEdit = { key: null, time: 0 };
-      Object.assign(state.ui, { activeRoomId: project.rooms[0].id, selectedId: null, selectedOpeningId: null, selectedVertex: null, selectedLabelId: null, hoverEdge: null, tool: 'select', guides: [], measure: null });
+      Object.assign(state.ui, { activeRoomId: project.rooms[0].id, selectedId: null, selectedOpeningId: null, selectedVertex: null, selectedLabelId: null, selectedDividerId: null, dividerDraft: null, hoverEdge: null, tool: 'select', guides: [], measure: null });
       state.rev++;
       notify();
     },
@@ -157,7 +162,7 @@
     // Switch which room is edited (clears the selection).
     setActiveRoom: function (id) {
       if (state.ui.activeRoomId === id) return;
-      Object.assign(state.ui, { activeRoomId: id, selectedId: null, selectedOpeningId: null, selectedVertex: null, selectedLabelId: null, hoverEdge: null, guides: [] });
+      Object.assign(state.ui, { activeRoomId: id, selectedId: null, selectedOpeningId: null, selectedVertex: null, selectedLabelId: null, selectedDividerId: null, hoverEdge: null, guides: [] });
       notify();
     },
     createProject: createProject,

@@ -230,6 +230,10 @@
     document.getElementById('new-category').addEventListener('click', function () { RP.dialogs.newCategory(); });
 
     document.getElementById('delete-btn').addEventListener('click', A.deleteSelected);
+    document.getElementById('sb-div-style').addEventListener('click', function () {
+      const d = A.selectedDivider();
+      if (d) A.updateDivider(d.id, { style: d.style === 'dashed' ? 'solid' : 'dashed' });
+    });
     document.getElementById('sb-edit-label').addEventListener('click', function () {
       const label = A.selectedLabel();
       if (label) RP.dialogs.labelDialog(label);
@@ -259,13 +263,20 @@
     const piece = A.selectedPiece();
     const opening = A.selectedOpening();
     const label = A.selectedLabel();
+    const divider = A.selectedDivider();
     const bar = document.getElementById('selection-bar');
-    bar.hidden = !piece && !opening && !label;
+    bar.hidden = !piece && !opening && !label && !divider;
     // Rotate and Duplicate only make sense for furniture
-    document.getElementById('sb-rotate').hidden = !!opening || !!label;
-    document.getElementById('sb-dup').hidden = !!opening || !!label;
+    document.getElementById('sb-rotate').hidden = !!opening || !!label || !!divider;
+    document.getElementById('sb-dup').hidden = !!opening || !!label || !!divider;
     document.getElementById('sb-edit-label').hidden = !label;
-    if (label) {
+    document.getElementById('sb-div-style').hidden = !divider;
+    if (divider) {
+      document.getElementById('selection-name').textContent = 'Divider · ' +
+        RP.units.formatLength(Math.hypot(divider.b.x - divider.a.x, divider.b.y - divider.a.y), state.project.units);
+      document.getElementById('sb-div-style').textContent = divider.style === 'dashed' ? 'Make solid' : 'Make dashed';
+      document.getElementById('delete-btn').disabled = false;
+    } else if (label) {
       const first = String(label.text).split('\n')[0];
       document.getElementById('selection-name').textContent = 'Label · ' + (first.length > 24 ? first.slice(0, 23) + '…' : first);
       document.getElementById('delete-btn').disabled = false;

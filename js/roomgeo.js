@@ -81,7 +81,10 @@
     if (Math.abs(dx) > 1e-9 || Math.abs(dy) > 1e-9) {
       room.points.forEach(function (p) { p.x += dx; p.y += dy; });
       room.furniture.forEach(function (f) { f.x += dx; f.y += dy; });
-      if (room.nameAt) { room.nameAt.x += dx; room.nameAt.y += dy; }
+      if (room.nameAt && typeof room.nameAt.x === 'number') { room.nameAt.x += dx; room.nameAt.y += dy; }
+      (room.dividers || []).forEach(function (d) {
+        if (d && d.a && d.b) { d.a.x += dx; d.a.y += dy; d.b.x += dx; d.b.y += dy; }
+      });
     } else {
       room.points.forEach(function (p) { if (Math.abs(p.x) < 1e-9) p.x = 0; if (Math.abs(p.y) < 1e-9) p.y = 0; });
     }

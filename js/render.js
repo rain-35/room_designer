@@ -68,8 +68,10 @@
     rv.gridMinor = make('path', { class: 'grid-minor' }, rv.gridG);
     rv.gridMajor = make('path', { class: 'grid-major' }, rv.gridG);
     rv.wallHitG = make('g', { class: 'wall-hits' }, rv.g); // under the furniture, so pieces beside a wall stay grabbable
+    rv.dividersG = make('g', { class: 'dividers' }, rv.g);  // under the furniture, like a line painted on the floor
     rv.furnG = make('g', { class: 'furniture' }, rv.g);
     rv.handlesG = make('g', { class: 'handles' }, rv.g);
+    rv.dividerHandlesG = make('g', { class: 'handles' }, rv.g);
     rv.wall = make('path', { class: 'wall' }, rv.g);
     rv.openingsG = make('g', { class: 'openings' }, rv.g);
     rv.vertexG = make('g', { class: 'vertices' }, rv.g);
@@ -133,7 +135,7 @@
     clear(rv.vertexG);
     clear(rv.wallHitG);
     const ui = state.ui;
-    if (!active || !RP.roomgeo.isPolygon(room) || ui.tool !== 'select' || ui.selectedId || ui.selectedOpeningId) return;
+    if (!active || !RP.roomgeo.isPolygon(room) || ui.tool !== 'select' || ui.selectedId || ui.selectedOpeningId || ui.selectedDividerId) return;
     const px = 1 / state.view.ppi;
     // Fat invisible lines along each wall: drag one to move the whole wall
     RP.roomgeo.edges(room).forEach(function (e) {
@@ -374,6 +376,16 @@
   // The measure tool works across rooms, so it is drawn in house coordinates.
   function drawMeasure(state) {
     clear(houseOverlayG);
+    const draft = state.ui.dividerDraft; // a divider being drawn
+    if (draft) {
+      lineIn(houseOverlayG, draft.a, draft.b, 'divider-line draft');
+      const len = Math.hypot(draft.b.x - draft.a.x, draft.b.y - draft.a.y);
+      if (len > 0) {
+        const px = 1 / state.view.ppi;
+        textIn(houseOverlayG, RP.units.formatLength(len, state.project.units), (draft.a.x + draft.b.x) / 2,
+          (draft.a.y + draft.b.y) / 2 - 12 * px, px, 14, 'measure-text');
+      }
+    }
     const m = state.ui.measure;
     if (!m || !m.a) return;
     const px = 1 / state.view.ppi;
@@ -387,6 +399,27 @@
         (m.a.x + end.x) / 2, (m.a.y + end.y) / 2 - 12 * px, px, 14, 'measure-text');
     }
     dot(m.a);
+  }
+
+  // Divider lines in a room. The selected one gets a handle on each end.
+  function drawDividers(rv, room, state, active) {
+    clear(rv.dividersG);
+    clear(rv.dividerHandlesG);
+    const px = 1 / state.view.ppi;
+    const select = state.ui.tool === 'select';
+    (room.dividers || []).forEach(function (d) {
+      const selected = active && d.id === state.ui.selectedDividerId;
+      const g = make('g', { class: 'divider' + (selected ? ' selected' : ''), 'data-divider': d.id }, rv.dividersG);
+      if (select) lineIn(g, d.a, d.b, 'divider-hit');
+      lineIn(g, d.a, d.b, 'divider-line' + (d.style === 'dashed' ? ' dashed' : ''));
+      if (selected && select) {
+        ['a', 'b'].forEach(function (end) {
+          const h = make('g', { class: 'divider-handle', 'data-dhandle': end }, rv.dividerHandlesG);
+          make('circle', { class: 'vertex-hit', cx: d[end].x, cy: d[end].y, r: VERTEX_HIT_PX * px }, h);
+          make('circle', { class: 'vertex-dot', cx: d[end].x, cy: d[end].y, r: VERTEX_PX * px }, h);
+        });
+      }
+    });
   }
 
   // Floating text notes. Several lines are allowed. A selected label gets a dashed box.
@@ -441,6 +474,7 @@
     rv.gridMajor.style.display = majorOn ? '' : 'none';
 
     drawOpenings(rv, room, state);
+    drawDividers(rv, room, state, active);
     drawFurniture(rv, room, state);
     drawHandles(rv, state, active);
     drawVertexHandles(rv, room, state, active);

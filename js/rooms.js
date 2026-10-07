@@ -61,6 +61,7 @@
       copy.x = box.maxX;
       copy.furniture.forEach(function (f) { f.id = S.newId('f'); });
       copy.openings.forEach(function (o) { o.id = S.newId('o'); });
+      (copy.dividers || []).forEach(function (d) { d.id = S.newId('d'); });
       p.rooms.push(copy);
     });
     if (id) S.setActiveRoom(id);

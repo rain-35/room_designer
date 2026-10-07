@@ -274,9 +274,14 @@
   const warnSummary = $('warn-summary');
   snapBtn.addEventListener('click', function () { S.setUi({ snap: !S.get().ui.snap }); });
   warningsBtn.addEventListener('click', function () { S.setUi({ warnings: !S.get().ui.warnings }); });
+  const dividerBtn = $('divider-toggle');
   measureBtn.addEventListener('click', function () {
     if (S.get().ui.tool === 'measure') S.setUi({ tool: 'select', measure: null });
-    else S.setUi({ tool: 'measure', measure: null, selectedId: null, guides: [] });
+    else S.setUi({ tool: 'measure', measure: null, selectedId: null, selectedDividerId: null, dividerDraft: null, guides: [] });
+  });
+  dividerBtn.addEventListener('click', function () {
+    if (S.get().ui.tool === 'divider') S.setUi({ tool: 'select', dividerDraft: null });
+    else S.setUi({ tool: 'divider', measure: null, dividerDraft: null, selectedId: null, selectedOpeningId: null, selectedLabelId: null, selectedDividerId: null, guides: [] });
   });
   gridSelect.addEventListener('change', function () { S.setUi({ gridSize: Number(gridSelect.value) }); });
   unitsBtn.addEventListener('click', function () {
@@ -350,6 +355,9 @@
     const measuring = state.ui.tool === 'measure';
     measureBtn.setAttribute('aria-pressed', String(measuring));
     svg.classList.toggle('measuring', measuring);
+    const dividing = state.ui.tool === 'divider';
+    dividerBtn.setAttribute('aria-pressed', String(dividing));
+    svg.classList.toggle('divider-tool', dividing);
     unitsBtn.textContent = u === 'metric' ? 'Metric' : 'ft / in';
     themeBtn.textContent = currentTheme() === 'dark' ? 'Dark' : 'Light';
   }
