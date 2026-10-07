@@ -104,16 +104,44 @@
   function isHoriz(a, b) { return Math.abs(b.y - a.y) < Math.abs(b.x - a.x); }
 
   // Is every wall horizontal or vertical, alternating around the room (so every corner is 90 degrees)?
+  // A corner that sits on a straight wall (a "pivot") is allowed: its two walls run the same way.
   function isSquare(pts) {
     const n = pts.length;
-    if (n < 4 || n % 2) return false;
+    if (n < 4) return false;
     for (let i = 0; i < n; i++) {
       const a = pts[i];
       const b = pts[(i + 1) % n];
       if (Math.min(Math.abs(b.x - a.x), Math.abs(b.y - a.y)) > 0.01) return false;
-      if (isHoriz(a, b) === isHoriz(b, pts[(i + 2) % n])) return false;
+      const c = pts[(i + 2) % n];
+      if (isHoriz(a, b) === isHoriz(b, c) && (b.x - a.x) * (c.x - b.x) + (b.y - a.y) * (c.y - b.y) <= 0) return false; // doubles back
     }
     return true;
+  }
+
+  // Is corner k just a point on a straight wall (its two walls run the same way)?
+  function isPivot(pts, k) {
+    const n = pts.length;
+    const a = pts[(k + n - 1) % n];
+    const b = pts[k];
+    const c = pts[(k + 1) % n];
+    const cross = (b.x - a.x) * (c.y - b.y) - (b.y - a.y) * (c.x - b.x);
+    const dot = (b.x - a.x) * (c.x - b.x) + (b.y - a.y) * (c.y - b.y);
+    return Math.abs(cross) < 0.01 * Math.hypot(b.x - a.x, b.y - a.y) * Math.hypot(c.x - b.x, c.y - b.y) && dot > 0;
+  }
+
+  // The vertices of the whole straight run that wall i belongs to (pivots included), first to last.
+  function runIndices(pts, i) {
+    const n = pts.length;
+    let s = i;
+    for (let g = 0; g < n && isPivot(pts, s); g++) s = (s + n - 1) % n;
+    let e = (i + 1) % n;
+    for (let g = 0; g < n && isPivot(pts, e); g++) e = (e + 1) % n;
+    const out = [];
+    for (let k = s; ; k = (k + 1) % n) {
+      out.push(k);
+      if (k === e || out.length > n) break;
+    }
+    return out;
   }
 
   // Nudge an outline so every wall is horizontal or vertical. Returns new points, or null if that is not possible.
@@ -140,12 +168,24 @@
     const pts = clonePoints(r.points);
     const n = pts.length;
     if (r.squareCorners && n >= 4) {
+      const orig = clonePoints(pts);
       const prev = (i + n - 1) % n;
       const next = (i + 1) % n;
-      const prevH = isHoriz(pts[prev], pts[i]);
-      const nextH = isHoriz(pts[i], pts[next]);
-      if (prevH) pts[prev].y = y; else pts[prev].x = x;
-      if (nextH) pts[next].y = y; else pts[next].x = x;
+      const prevH = isHoriz(orig[prev], orig[i]);
+      const nextH = isHoriz(orig[i], orig[next]);
+      // Slide the whole straight stretch on each side (pivots included) up to its far corner
+      let k = prev;
+      for (let g = 0; g < n; g++) {
+        if (prevH) pts[k].y = y; else pts[k].x = x;
+        if (!isPivot(orig, k)) break;
+        k = (k + n - 1) % n;
+      }
+      k = next;
+      for (let g = 0; g < n; g++) {
+        if (nextH) pts[k].y = y; else pts[k].x = x;
+        if (!isPivot(orig, k)) break;
+        k = (k + 1) % n;
+      }
     }
     pts[i] = { x: x, y: y };
     return pts;
@@ -171,12 +211,11 @@
 
   // ---- Moving a whole wall ----
 
-  // Corners i and i+1 both shifted by (vx, vy).
-  function shiftWall(pts, i, vx, vy) {
+  // Corners i and i+1 both shifted by (vx, vy). With `whole` the whole straight run the wall belongs to moves.
+  function shiftWall(pts, i, vx, vy, whole) {
     const out = clonePoints(pts);
-    const j = (i + 1) % out.length;
-    out[i].x += vx; out[i].y += vy;
-    out[j].x += vx; out[j].y += vy;
+    const ids = whole ? runIndices(pts, i) : [i, (i + 1) % out.length];
+    ids.forEach(function (k) { out[k].x += vx; out[k].y += vy; });
     return out;
   }
 
@@ -190,11 +229,86 @@
   function moveWall(i, startPts, d, opts) {
     if (!G.isPolygon(room())) return false;
     const n = wallNormal(startPts, i);
-    const pts = shiftWall(startPts, i, n.x * d, n.y * d);
+    const pts = shiftWall(startPts, i, n.x * d, n.y * d, !!room().squareCorners);
     if (!G.validPolygon(pts)) return false;
     S.update(function (p) {
       const r = S.activeOf(p);
       r.points = pts;
+      afterShapeChange(r);
+    }, opts);
+    return true;
+  }
+
+  // ---- Pivots: a corner on a straight wall, dragged in or out to make an L ----
+
+  // Keep each door/window where it is in space: find the new wall it now lies on. Drops ones that no longer fit.
+  function reattachOpenings(oldPts, ops, newPts) {
+    const oldRoom = { shape: 'polygon', points: oldPts, width: 0, length: 0 };
+    const edges = G.edges({ shape: 'polygon', points: newPts, width: 0, length: 0 });
+    const kept = [];
+    ops.forEach(function (op) {
+      const mid = RP.openings.ends(oldRoom, op).mid;
+      for (let i = 0; i < edges.length; i++) {
+        const e = edges[i];
+        if (G.distToSegment(mid, e.a, e.b) > 0.5) continue;
+        const offset = (mid.x - e.a.x) * e.dir.x + (mid.y - e.a.y) * e.dir.y - op.width / 2;
+        if (offset >= -0.01 && offset + op.width <= e.length + 0.01) {
+          kept.push(Object.assign({}, op, { wall: i, offset: Math.max(0, offset) }));
+        }
+        return;
+      }
+    });
+    return kept;
+  }
+
+  // The outline when pivot idx (a corner on a straight wall) is dragged to T. Its straight wall is cut at T and
+  // the nearer end is pulled in (or pushed out) to meet it, which makes an L. Returns points, or null.
+  function pivotShape(pts, idx, T) {
+    const n = pts.length;
+    const prev = function (k) { return (k + n - 1) % n; };
+    const next = function (k) { return (k + 1) % n; };
+    let s = idx;
+    while (isPivot(pts, prev(s)) && prev(s) !== idx) s = prev(s);
+    let e = idx;
+    while (isPivot(pts, next(e)) && next(e) !== idx) e = next(e);
+    const A = prev(s);
+    const B = next(e);
+    const a = pts[A];
+    const b = pts[B];
+    const P = pts[idx];
+    const run = Math.hypot(b.x - a.x, b.y - a.y);
+    if (run < 1) return null;
+    const dir = { x: (b.x - a.x) / run, y: (b.y - a.y) / run };
+    const nrm = wallNormal(pts, prev(idx)); // into the room
+    const t = (T.x - a.x) * dir.x + (T.y - a.y) * dir.y;
+    const y = (T.x - P.x) * nrm.x + (T.y - P.y) * nrm.y;
+    if (t <= 0 || t >= run) return null;
+    const toB = t >= run / 2;
+    const Q = { x: a.x + dir.x * t, y: a.y + dir.y * t };
+    const Qp = { x: Q.x + nrm.x * y, y: Q.y + nrm.y * y };
+    const chain = {};
+    for (let k = s; ; k = next(k)) { chain[k] = true; if (k === e) break; }
+    const out = [];
+    pts.forEach(function (p, k) {
+      if (k === idx) { out.push.apply(out, toB ? [Q, Qp] : [Qp, Q]); return; }
+      if (chain[k]) return; // other pivots on this wall are no longer needed
+      if (k === B && toB) { out.push({ x: b.x + nrm.x * y, y: b.y + nrm.y * y }); return; }
+      if (k === A && !toB) { out.push({ x: a.x + nrm.x * y, y: a.y + nrm.y * y }); return; }
+      out.push({ x: p.x, y: p.y });
+    });
+    return out;
+  }
+
+  // Drag pivot idx to T, starting from startPts / startOps. Returns false (changing nothing) if that is not a valid shape.
+  function movePivot(startPts, startOps, idx, T, opts) {
+    if (!G.isPolygon(room())) return false;
+    const pts = pivotShape(startPts, idx, T);
+    if (!pts || !G.validPolygon(pts)) return false;
+    const ops = reattachOpenings(startPts, startOps, pts);
+    S.update(function (p) {
+      const r = S.activeOf(p);
+      r.points = pts;
+      r.openings = ops;
       afterShapeChange(r);
     }, opts);
     return true;
@@ -274,8 +388,8 @@
     S.update(function (p) {
       const r = S.activeOf(p);
       const e = G.edges(r)[i];
-      const half = e.length / 2;
-      const mid = { x: (e.a.x + e.b.x) / 2, y: (e.a.y + e.b.y) / 2 };
+      const half = Math.round(e.length / 2); // a whole number of inches from the start
+      const mid = { x: e.a.x + e.dir.x * half, y: e.a.y + e.dir.y * half };
       r.points.splice(i + 1, 0, mid);
       r.openings.forEach(function (op) {
         if (op.wall > i) {
@@ -290,10 +404,39 @@
     return i + 1;
   }
 
+  // Square room: removing a real corner puts it on the opposite corner of the rectangle its two walls
+  // make (an inside corner of an L disappears and the room fills back to the walls beyond it).
+  // The two corners beside it are dropped if they end up on a straight wall. Returns false if that is not possible.
+  function deleteSquareCorner(i) {
+    const r0 = room();
+    const pts = clonePoints(r0.points);
+    const n = pts.length;
+    if (n <= 4) return false;
+    const prev = (i + n - 1) % n;
+    const next = (i + 1) % n;
+    const flipped = clonePoints(pts);
+    flipped[i] = { x: pts[prev].x + pts[next].x - pts[i].x, y: pts[prev].y + pts[next].y - pts[i].y };
+    const gone = [prev, next].filter(function (k) { return !isPivot(pts, k) && isPivot(flipped, k); });
+    const out = flipped.filter(function (p, k) { return gone.indexOf(k) === -1; });
+    if (out.length < 4 || !G.validPolygon(out) || !isSquare(out)) return false;
+    let shift = null;
+    S.update(function (p) {
+      const r = S.activeOf(p);
+      r.points = out;
+      r.openings = reattachOpenings(pts, r0.openings, out);
+      shift = G.normalize(r);
+      afterShapeChange(r);
+    });
+    followShift(shift);
+    S.setUi({ selectedVertex: null, selectedOpeningId: null });
+    return true;
+  }
+
   // Remove corner i (a polygon keeps at least 3). Doors and windows on the wall that follows it are dropped.
   function deleteVertex(i) {
     const r0 = room();
-    if (!G.isPolygon(r0) || r0.points.length <= 3 || r0.squareCorners) return false;
+    if (!G.isPolygon(r0) || r0.points.length <= 3) return false;
+    if (r0.squareCorners && !isPivot(r0.points, i)) return deleteSquareCorner(i);
     const pts = clonePoints(r0.points);
     pts.splice(i, 1);
     if (!G.validPolygon(pts)) return false;
@@ -318,10 +461,10 @@
     const e = G.edges(r0)[i];
     const n = r0.points.length;
     let pts = clonePoints(r0.points);
-    if (r0.squareCorners) {
+    if (r0.squareCorners && !isPivot(pts, (i + 1) % n)) {
       // Slide the wall that follows, so every corner stays 90 degrees
       const delta = inches - e.length;
-      pts = shiftWall(pts, (i + 1) % n, e.dir.x * delta, e.dir.y * delta);
+      pts = shiftWall(pts, (i + 1) % n, e.dir.x * delta, e.dir.y * delta, true);
     } else {
       pts[(i + 1) % n] = { x: e.a.x + e.dir.x * inches, y: e.a.y + e.dir.y * inches };
     }
@@ -348,6 +491,9 @@
     deleteVertex: deleteVertex,
     setWallLength: setWallLength,
     isSquare: isSquare,
+    isPivot: isPivot,
+    runIndices: runIndices,
+    movePivot: movePivot,
     moveWall: moveWall,
     wallNormal: wallNormal,
     setSquare: setSquare,

@@ -136,10 +136,41 @@
 
     // ---- Room corners (polygon rooms) ----
     // Snap a dragged corner to the grid and to the x / y of the room's other corners.
-    function snapCorner(e, index, w) {
+    // Where a dragged corner goes. In a square room the walls that touch it are made a whole number of
+    // inches long (measured from their far ends), unless Alt is held.
+    function snapCorner(e, index, w, startPts) {
+      const out = snapCornerRaw(e, index, w, startPts);
+      const live = S.room();
+      if (e.altKey || !live.squareCorners) return out;
+      const P = startPts || live.points;
+      const n = P.length;
+      const prev = P[(index + n - 1) % n];
+      const next = P[(index + 1) % n];
+      const horiz = function (a, b) { return Math.abs(b.y - a.y) < Math.abs(b.x - a.x); };
+      const wholeFrom = function (v, anchor) { return anchor + Math.round(v - anchor); };
+      const r = { x: out.x, y: out.y };
+      if (startPts) {
+        // A point on a straight wall being dragged: the cut is a whole number of inches from the nearer end,
+        // and its depth is a whole number of inches.
+        const h = horiz(prev, P[index]);
+        const key = h ? 'x' : 'y';
+        const other = h ? 'y' : 'x';
+        const near = Math.abs(r[key] - prev[key]) <= Math.abs(r[key] - next[key]) ? prev : next;
+        r[key] = wholeFrom(r[key], near[key]);
+        r[other] = wholeFrom(r[other], P[index][other]);
+        return r;
+      }
+      if (horiz(prev, P[index])) r.x = wholeFrom(r.x, prev.x); else r.y = wholeFrom(r.y, prev.y);
+      if (horiz(P[index], next)) r.x = wholeFrom(r.x, next.x); else r.y = wholeFrom(r.y, next.y);
+      return r;
+    }
+
+    function snapCornerRaw(e, index, w, startPts) {
       const whole = function (p) { return e.altKey ? p : { x: Math.round(p.x), y: Math.round(p.y) }; }; // whole inches unless Alt
       if (!snapping(e)) return whole(w);
-      const room = S.room();
+      const live = S.room();
+      // startPts: the outline as it was when a pivot drag began (the live outline changes while dragging)
+      const room = { squareCorners: live.squareCorners, points: startPts || live.points };
       const tol = snapThreshold();
       const grid = S.get().ui.gridSize;
       let hit = false;
@@ -178,6 +209,16 @@
 
     function startCornerDrag(e, index, alreadyMoved) {
       S.setUi({ selectedVertex: index });
+      const room = S.room();
+      if (room.squareCorners && RP.roomedit.isPivot(room.points, index)) {
+        // A corner on a straight wall: dragging it cuts or extends the room into an L
+        drag = {
+          kind: 'pivot', pointerId: e.pointerId, index: index, moved: false, key: S.newId('pivot'),
+          pts: room.points.map(function (p) { return { x: p.x, y: p.y }; }),
+          ops: JSON.parse(JSON.stringify(room.openings)),
+        };
+        return;
+      }
       drag = { kind: 'vertex', pointerId: e.pointerId, index: index, moved: !!alreadyMoved, key: S.newId('corner') };
     }
 
@@ -196,25 +237,51 @@
       if (e.altKey) return d;
       const n = drag.n;
       const axis = Math.abs(n.x) > 0.999 ? 'x' : Math.abs(n.y) > 0.999 ? 'y' : null;
-      if (axis && snapping(e)) {
-        const sign = axis === 'x' ? Math.sign(n.x) : Math.sign(n.y);
-        const base = drag.pts[drag.index][axis];
-        const pos = base + sign * d;
+      if (!axis) return Math.round(d);
+      const other = axis === 'x' ? 'y' : 'x';
+      const sign = axis === 'x' ? Math.sign(n.x) : Math.sign(n.y);
+      const pts = drag.pts;
+      const count = pts.length;
+      const base = pts[drag.index][axis];
+      const pos = base + sign * d;
+
+      // The walls touching this one change length as it moves. Their far ends stay put, so those are the
+      // positions the new lengths are measured from (only for walls running straight in the moving direction).
+      const ids = S.room().squareCorners ? RP.roomedit.runIndices(pts, drag.index) : [drag.index, (drag.index + 1) % count];
+      const first = pts[ids[0]];
+      const last = pts[ids[ids.length - 1]];
+      const anchors = [];
+      const before = pts[(ids[0] + count - 1) % count];
+      const after = pts[(ids[ids.length - 1] + 1) % count];
+      if (Math.abs(before[other] - first[other]) < 1e-6) anchors.push(before[axis]);
+      if (Math.abs(after[other] - last[other]) < 1e-6) anchors.push(after[axis]);
+      const wholeLengths = function (p) {
+        return anchors.every(function (a) { return Math.abs((p - a) - Math.round(p - a)) < 1e-6; });
+      };
+
+      if (snapping(e)) {
+        // Line up with the grid or another corner, if that keeps the wall lengths whole
         const grid = S.get().ui.gridSize;
         const tol = snapThreshold();
-        const n2 = drag.pts.length;
-        const own = [drag.index, (drag.index + 1) % n2];
         let best = null;
-        drag.pts.forEach(function (p, i) {
-          if (own.indexOf(i) !== -1) return;
+        pts.forEach(function (p, i) {
+          if (ids.indexOf(i) !== -1) return;
           const dist = Math.abs(p[axis] - pos);
-          if (dist <= tol && (!best || dist < best.d)) best = { d: dist, v: p[axis] };
+          if (dist <= tol && wholeLengths(p[axis]) && (!best || dist < best.d)) best = { d: dist, v: p[axis] };
         });
         const g = Math.round(pos / grid) * grid;
-        if (!best && Math.abs(g - pos) <= tol) best = { d: 0, v: g };
+        if (!best && Math.abs(g - pos) <= tol && wholeLengths(g)) best = { d: 0, v: g };
         if (best) return (best.v - base) * sign;
       }
-      return Math.round(d);
+
+      // Otherwise make the touching walls a whole number of inches long
+      let result = Math.round(pos);
+      let bestGap = Infinity;
+      anchors.forEach(function (a) {
+        const c = a + Math.round(pos - a);
+        if (Math.abs(c - pos) < bestGap) { bestGap = Math.abs(c - pos); result = c; }
+      });
+      return (result - base) * sign;
     }
 
     function doWallDrag(e, w) {
@@ -285,7 +352,7 @@
       if (addNode) {
         // Clicking a wall's + adds a corner there (square rooms: a small step); keep dragging to place it.
         const wallIndex = Number(addNode.getAttribute('data-addvertex'));
-        if (S.room().squareCorners) {
+        if (S.room().squareCorners && e.shiftKey) { // Shift+click in a square room: a step instead of a single corner
           const stepWall = RP.roomedit.insertStep(wallIndex);
           if (stepWall < 0) RP.fields.message('That wall is too short to add a step.');
           else startWallDrag(e, stepWall, true);
@@ -345,6 +412,9 @@
       else if (drag.kind === 'vertex') {
         const at = snapCorner(e, drag.index, w);
         if (RP.roomedit.moveVertex(drag.index, at.x, at.y, { coalesce: drag.key })) drag.moved = true;
+      } else if (drag.kind === 'pivot') {
+        const at = snapCorner(e, drag.index, w, drag.pts);
+        if (RP.roomedit.movePivot(drag.pts, drag.ops, drag.index, at, { coalesce: drag.key })) drag.moved = true;
       } else if (drag.kind === 'wall') doWallDrag(e, w);
       else if (drag.kind === 'opening') doOpeningDrag(e, w);
       else doMove(e, w);
@@ -358,7 +428,7 @@
       }
       if (drag && e.pointerId === drag.pointerId) {
         // A dragged corner: move the room's box back to (0, 0), as part of the same undo step.
-        if ((drag.kind === 'vertex' || drag.kind === 'wall') && drag.moved) RP.roomedit.finishVertexMove({ coalesce: drag.key });
+        if ((drag.kind === 'vertex' || drag.kind === 'wall' || drag.kind === 'pivot') && drag.moved) RP.roomedit.finishVertexMove({ coalesce: drag.key });
         if (drag.kind === 'room' && drag.moved) RP.rooms.finishMove({ coalesce: drag.key });
         drag = null;
         clearGuides();
@@ -401,7 +471,7 @@
         } else if (ui.selectedVertex !== null) {
           e.preventDefault();
           if (!RP.roomedit.deleteVertex(ui.selectedVertex)) {
-            RP.fields.message(S.room().squareCorners ? 'Turn off "Keep corners square" to remove a corner.'
+            RP.fields.message(S.room().squareCorners ? 'That corner cannot be removed without crossing walls. Untick "Keep corners square" to remove it freely.'
               : 'A room needs at least 3 corners, and its walls cannot cross.');
           }
         }

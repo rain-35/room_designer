@@ -92,7 +92,10 @@
     });
     $('r-del-vertex').addEventListener('click', function () {
       const i = S.get().ui.selectedVertex;
-      if (i !== null && !RP.roomedit.deleteVertex(i)) RP.fields.message('A room needs at least 3 corners, and its walls cannot cross.');
+      if (i !== null && !RP.roomedit.deleteVertex(i)) {
+        RP.fields.message(room().squareCorners ? 'That corner cannot be removed without crossing walls. Untick "Keep corners square" to remove it freely.'
+          : 'A room needs at least 3 corners, and its walls cannot cross.');
+      }
     });
     $('r-square').addEventListener('change', function () {
       const on = $('r-square').checked;
@@ -283,8 +286,8 @@
     $('r-make-rect').hidden = !poly;
     const vertex = state.ui.selectedVertex;
     $('r-del-vertex').hidden = !(poly && vertex !== null);
-    $('r-del-vertex').disabled = poly && (r.points.length <= 3 || !!r.squareCorners);
-    $('r-del-vertex').title = poly && r.squareCorners ? 'Turn off "Keep corners square" to remove a corner' : '';
+    $('r-del-vertex').disabled = poly && (r.points.length <= (r.squareCorners ? 4 : 3));
+    $('r-del-vertex').title = poly && r.squareCorners ? 'With square corners the room fills back to the walls beyond the corner' : '';
     $('r-square-row').hidden = !poly;
     $('r-square').checked = !!r.squareCorners;
     $('r-width').disabled = poly;
